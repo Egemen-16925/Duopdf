@@ -70,7 +70,7 @@ Kullanıcı API anahtarını, sağlayıcıyı veya modeli değiştirdiğinde hi�
 
 - AI durumsuzdur. Model hiçbir şey hatırlamaz; her istekte gereken bağlamı (cümle, kelime, kullanıcının cevabı) uygulama gönderir.
 - Öğrenme verisi (kelimeler, cümleler, çeviri önbelleği, sınav geçmişi) Dexie'de durur ve sağlayıcıya dair hiçbir alana bağlı değildir.
-- Sağlayıcı profilleri (`ad`, `baseUrl`, `apiKey`, `hızlıModel`, `güçlüModel`) ayrı bir depoda durur. Birden çok profil kaydedilebilir, aralarında geçilebilir.
+- Sağlayıcılar (`ad`, `baseUrl`, `apiKey`) ayrı bir depoda durur. Her model rolü (hızlı, güçlü, görsel) kendi sağlayıcısını ve modelini ayrı seçer; roller farklı API'lerden çalışabilir.
 - Önbellek anahtarında sağlayıcı veya model adı bulunmaz. Kötü bir çeviri için "yeniden çevir" düğmesi vardır.
 - Dışa aktarılan yedek dosyasına API anahtarı yazılmaz.
 
@@ -332,3 +332,6 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Yedek yol: "Yapay zekâ ile oku", profilde isteğe bağlı `visionModel`; OpenAI `image_url` biçimi, resim en çok 1600 px JPEG. Sonuç `cache` tablosunda, panelde gösterilir ve içindeki kelimeler işaretlenebilir.
 - 2026-10-02: Görüntüleyiciler hata sınırıyla sarıldı; bir belge çökerse yalnızca kendi sekmesinde hata gösterilir.
 - 2026-10-02: Faz 8 için not: `public/tesseract/core/` üç çekirdek sürümü içeriyor (~20 MB); paketlemede gerçekten yüklenenler ölçülüp gereksizler çıkarılmalı.
+- 2026-10-02: Ayarlar yeniden yapılandı: "etkin profil" kalktı; sağlayıcılar (adres + anahtar) ve rol atamaları (`roles.fast|strong|vision = { profileId, model }`). Eski biçim açılışta otomatik taşınır. İstekler `AiTarget` (sağlayıcı + model) alır.
+- 2026-10-02: Tarayıcının `<datalist>` öneri listesi sayfa kayınca yerinde kaldığı için kendi model seçme kutumuz (`ModelInput`) kullanılıyor.
+- 2026-10-02: PPTX metin görünümü SmartArt (diagrams/data), grafik başlıkları, `mc:AlternateContent` ve konuşmacı notlarını da okuyor. Egemen'in bildirdiği "çoğu metin görünmüyor" sorunu için; gerçek dosyayla doğrulanması bekleniyor.
