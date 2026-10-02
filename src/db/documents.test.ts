@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DuopdfDB } from "./db";
-import { clearRecent, hideFromRecent, recentDocuments, registerOpened, savePosition } from "./documents";
+import { clearRecent, hideFromRecent, recentDocuments, registerOpened, saveOriginalPage, savePosition } from "./documents";
 
 let db: DuopdfDB;
 let counter = 0;
@@ -34,6 +34,14 @@ describe("registerOpened", () => {
     expect(moved.filePath).toBe("D:\\Yeni\\ders.pdf");
     expect(moved.lastOpenedAt).toBe(2000);
     expect(await db.documents.count()).toBe(1);
+  });
+
+  it("keeps the original-view page separately from the text position", async () => {
+    const doc = await registerOpened(db, { ...file, format: "docx", pageCount: 3 }, 1000);
+    await savePosition(db, doc.id, 2, 0.3);
+    await saveOriginalPage(db, doc.id, 12);
+    const again = await registerOpened(db, { ...file, format: "docx", pageCount: 3 }, 2000);
+    expect(again).toMatchObject({ lastPage: 2, lastOffset: 0.3, originalPage: 12 });
   });
 
   it("clamps the last page when the page count shrinks", async () => {

@@ -39,6 +39,10 @@ export async function savePosition(db: DuopdfDB, id: number, page: number, offse
   await db.documents.update(id, { lastPage: page, lastOffset: offset });
 }
 
+export async function saveOriginalPage(db: DuopdfDB, id: number, page: number): Promise<void> {
+  await db.documents.update(id, { originalPage: page });
+}
+
 export async function recentDocuments(db: DuopdfDB, limit = 20): Promise<DocumentRecord[]> {
   return db.documents
     .orderBy("lastOpenedAt")

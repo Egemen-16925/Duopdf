@@ -280,3 +280,4 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Akan metinde konum = bölüm (lastPage) + bölüm içi oran (lastOffset). `documents` tablosu sürüm 2: format, lastOffset, hiddenFromRecent.
 - 2026-10-02: Sekmeler ve okuyucu sayfası gizlenince `display:none` değil `visibility:hidden` kullanılır; kaydırma konumu korunur.
 - 2026-10-02: DOM gerektiren testler jsdom ile çalışır (happy-dom'da DOMPurify düzgün çalışmıyor).
+- 2026-10-02: DOCX/PPTX için "orijinal görünüm": kurulu Microsoft Office (PowerShell + COM) belgeyi PDF'e çevirir, PDF uygulamanın önbelleğinde (`<app cache>/converted/<hash>.pdf`) tutulur. Bu, "dosyayı kopyalama" kuralının bilinçli istisnasıdır (silinebilir önbellek). Office yoksa yalnızca metin görünümü; LibreOffice desteği yok (Egemen'in kararı). Belgeler metin görünümüyle açılır.

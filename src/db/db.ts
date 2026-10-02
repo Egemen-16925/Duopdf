@@ -19,6 +19,8 @@ export interface DocumentRecord {
   lastPage: number;
   /** Akan metinde bölüm içindeki konum (0-1). PDF'te kullanılmaz. */
   lastOffset: number;
+  /** DOCX/PPTX'in Office ile çevrilmiş "orijinal görünümünde" kalınan sayfa. */
+  originalPage?: number;
   /** Son açılanlar listesinden kaldırıldı mı (kayıt ve öğrenme verisi durur). */
   hiddenFromRecent: boolean;
   addedAt: number;

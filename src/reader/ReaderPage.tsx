@@ -1,16 +1,30 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 import { db, type DocumentRecord } from "../db/db";
-import { clearRecent, hideFromRecent, recentDocuments, registerOpened, savePosition } from "../db/documents";
+import {
+  clearRecent,
+  hideFromRecent,
+  recentDocuments,
+  registerOpened,
+  saveOriginalPage,
+  savePosition,
+} from "../db/documents";
 import { formatFromPath } from "../formats/types";
 import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
+import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
+import { loadDocument } from "./pdfjs";
 import { PdfViewer } from "./PdfViewer";
 import { ReflowViewer } from "./ReflowViewer";
 
 interface Tab {
   record: DocumentRecord;
   content: LoadedContent;
+  /** DOCX/PPTX: metin görünümü mü, Office ile çevrilmiş orijinal görünüm mü. */
+  view: "text" | "original";
+  original?: PDFDocumentProxy;
+  converting?: boolean;
 }
 
 type Notice = { kind: "info" | "error"; text: string; missing?: DocumentRecord } | null;
@@ -29,6 +43,7 @@ export function ReaderPage() {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [dragging, setDragging] = useState(false);
+  const [office, setOffice] = useState<OfficeAvailability>({ word: false, powerpoint: false });
 
   const tabbarRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef(tabs);
@@ -40,7 +55,39 @@ export function ReaderPage() {
 
   useEffect(() => {
     refreshRecent();
+    officeAvailability().then(setOffice);
   }, []);
+
+  function patchTab(id: number, patch: Partial<Tab>) {
+    setTabs((prev) => prev.map((t) => (t.record.id === id ? { ...t, ...patch } : t)));
+  }
+
+  async function setView(tab: Tab, view: Tab["view"]) {
+    const id = tab.record.id;
+    if (view === "text" || tab.original) {
+      patchTab(id, { view });
+      return;
+    }
+    patchTab(id, { converting: true });
+    setNotice(null);
+    try {
+      const pdfPath = await convertWithOffice(tab.record.filePath, tab.record.hash);
+      const original = await loadDocument(await readDocumentBytes(pdfPath));
+      // Dönüştürme sürerken sekme kapatıldıysa belgeyi bırak.
+      if (!tabsRef.current.some((t) => t.record.id === id)) {
+        await original.loadingTask.destroy();
+        return;
+      }
+      patchTab(id, { original, view: "original", converting: false });
+    } catch (e) {
+      patchTab(id, { converting: false });
+      const text =
+        e instanceof FileNotFoundError
+          ? `"${tab.record.name}" bulunamadı; orijinal görünüm için dosyanın yerinde olması gerekiyor.`
+          : `Orijinal görünüm açılamadı: ${e instanceof Error ? e.message : String(e)}`;
+      setNotice({ kind: "error", text });
+    }
+  }
 
   // Etkin sekme dar pencerede çubuğun dışında kalmasın.
   useEffect(() => {
@@ -83,7 +130,7 @@ export function ReaderPage() {
       const name = fileName(path);
       const content = await loadContent(format, bytes, name);
       const record = await registerOpened(db, { name, filePath: path, hash, format, pageCount: pageCountOf(content) });
-      setTabs((prev) => [...prev, { record, content }]);
+      setTabs((prev) => [...prev, { record, content, view: "text" }]);
       setActiveId(record.id);
       if (expected && expected.hash !== hash) {
         setNotice({
@@ -125,6 +172,7 @@ export function ReaderPage() {
     setTabs(remaining);
     if (activeId === id) setActiveId(remaining[Math.min(index, remaining.length - 1)]?.record.id ?? null);
     disposeContent(tabs[index].content);
+    tabs[index].original?.loadingTask.destroy();
     refreshRecent();
   }
 
@@ -217,31 +265,67 @@ export function ReaderPage() {
 
       <div className="tab-stack">
         {/* Sekmeler gizlenince kaydırma konumu kaybolmasın diye hepsi yerinde kalır, yalnızca görünmez olur. */}
-        {tabs.map((t) => (
-          <div key={t.record.id} className={t.record.id === activeId ? "tab-pane" : "tab-pane inactive"}>
-            {t.content.noText && (
+        {tabs.map((t) => {
+          const officeApp = officeAppFor(t.record.format, office);
+          return (
+            <div key={t.record.id} className={t.record.id === activeId ? "tab-pane" : "tab-pane inactive"}>
+              {officeApp && (
+                <div className="view-switch" role="group" aria-label="Görünüm">
+                  <button
+                    className={t.view === "text" ? "active" : ""}
+                    onClick={() => setView(t, "text")}
+                    aria-pressed={t.view === "text"}
+                  >
+                    Metin görünümü
+                  </button>
+                  <button
+                    className={t.view === "original" ? "active" : ""}
+                    onClick={() => setView(t, "original")}
+                    aria-pressed={t.view === "original"}
+                    disabled={t.converting}
+                  >
+                    {t.converting ? `${officeApp} ile dönüştürülüyor…` : `Orijinal görünüm (${officeApp})`}
+                  </button>
+                </div>
+              )}
+              {t.view === "text" && t.content.noText && (
               <div className="msg error reader-notice">
                 {t.content.kind === "pdf"
                   ? "Bu PDF taranmış görünüyor: sayfalarda seçilebilir metin yok. Kelime işaretleme ve çeviri bu belgede çalışmaz (OCR desteklenmiyor)."
                   : "Bu belgede okunabilir metin bulunamadı."}
               </div>
             )}
-            {t.content.kind === "pdf" ? (
-              <PdfViewer
-                pdf={t.content.pdf}
-                initialPage={t.record.lastPage}
-                onPageChange={(page) => handlePosition(t.record.id, page)}
-              />
-            ) : (
-              <ReflowViewer
-                doc={t.content.doc}
-                initialSection={t.record.lastPage}
-                initialOffset={t.record.lastOffset}
-                onPositionChange={(section, offset) => handlePosition(t.record.id, section, offset)}
-              />
-            )}
-          </div>
-        ))}
+              <div className="view-stack">
+                {/* Görünümler arasında geçince konum kaybolmasın diye ikisi de yerinde kalır. */}
+                <div className={t.view === "text" ? "view-layer" : "view-layer inactive"}>
+                  {t.content.kind === "pdf" ? (
+                    <PdfViewer
+                      pdf={t.content.pdf}
+                      initialPage={t.record.lastPage}
+                      onPageChange={(page) => handlePosition(t.record.id, page)}
+                    />
+                  ) : (
+                    <ReflowViewer
+                      doc={t.content.doc}
+                      initialSection={t.record.lastPage}
+                      initialOffset={t.record.lastOffset}
+                      onPositionChange={(section, offset) => handlePosition(t.record.id, section, offset)}
+                    />
+                  )}
+                </div>
+                {t.original && (
+                  <div className={t.view === "original" ? "view-layer" : "view-layer inactive"}>
+                    <PdfViewer
+                      pdf={t.original}
+                      initialPage={t.record.originalPage ?? 1}
+                      onPageChange={(page) => saveOriginalPage(db, t.record.id, page)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
 
         {activeId === null && (
           <div className="tab-pane library">

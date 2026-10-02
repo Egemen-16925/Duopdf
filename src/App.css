@@ -163,7 +163,8 @@ pre {
 }
 
 .page-layer.inactive,
-.tab-pane.inactive {
+.tab-pane.inactive,
+.view-layer.inactive {
   visibility: hidden;
   pointer-events: none;
 }
@@ -511,6 +512,49 @@ pre {
 }
 
 .tab-pane {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-switch {
+  display: flex;
+  justify-content: center;
+  padding: 6px 16px 0;
+}
+
+.view-switch button {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
+  border-radius: 0;
+  padding: 3px 14px;
+  font-size: 0.85rem;
+}
+
+.view-switch button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-switch button:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.view-switch button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.view-stack {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.view-layer {
   position: absolute;
   inset: 0;
   display: flex;
