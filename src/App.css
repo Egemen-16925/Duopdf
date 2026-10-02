@@ -1013,6 +1013,16 @@ pre {
   font-size: 0;
 }
 
+/* OCR katmanı tüm sayfayı kaplar; boş alanları tıklamayı alttaki gerçek metin katmanına geçirsin.
+   Yalnızca OCR kelimeleri tıklanabilir. */
+.ocr-layer {
+  pointer-events: none;
+}
+
+.ocr-layer > span:not(.ocr-break) {
+  pointer-events: auto;
+}
+
 .ocr-status {
   font-size: 0.85rem;
   white-space: nowrap;
