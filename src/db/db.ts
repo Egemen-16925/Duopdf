@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { DocFormat } from "../formats/types";
+import type { TermStatus } from "../learning/matcher";
 
 /**
  * Öğrenme verisi (IndexedDB). Sağlayıcı ayarlarından tamamen ayrıdır;
@@ -27,8 +28,50 @@ export interface DocumentRecord {
   lastOpenedAt: number;
 }
 
+export interface TermRecord {
+  id: number;
+  /** Benzersiz anahtar: küçük harfli kök hâli ("run", "carry out"). */
+  key: string;
+  /** Gösterilen kök hâli. */
+  lemma: string;
+  /** İlk işaretlendiği hâli ("ran"). */
+  surface: string;
+  /** Eşleştirme kalıbı: her kelime konumu için kabul edilen kökler. */
+  pattern: string[][];
+  status: TermStatus;
+  /** Türkçe anlam (son sorulan cümleye göre). */
+  meaning: string;
+  explanation: string;
+  note: string;
+  createdAt: number;
+  updatedAt: number;
+  /** Aralıklı tekrar alanları (Faz 6). */
+  review: { intervalDays: number; dueAt: number; streak: number };
+}
+
+export interface OccurrenceRecord {
+  id: number;
+  termId: number;
+  documentId: number;
+  /** PDF'te sayfa, akan metinde bölüm (1'den başlar). */
+  page: number;
+  /** DOCX/PPTX'te hangi görünümde işaretlendiği (orijinal görünümde sayfalar farklıdır). */
+  view: "text" | "original";
+  sentence: string;
+  createdAt: number;
+}
+
+export interface CacheRecord {
+  key: string;
+  value: unknown;
+  createdAt: number;
+}
+
 export class DuopdfDB extends Dexie {
   documents!: EntityTable<DocumentRecord, "id">;
+  terms!: EntityTable<TermRecord, "id">;
+  occurrences!: EntityTable<OccurrenceRecord, "id">;
+  cache!: EntityTable<CacheRecord, "key">;
 
   constructor(name = "duopdf") {
     super(name);
@@ -47,6 +90,12 @@ export class DuopdfDB extends Dexie {
             d.hiddenFromRecent ??= false;
           }),
       );
+    this.version(3).stores({
+      documents: "++id, &hash, lastOpenedAt",
+      terms: "++id, &key, status, createdAt",
+      occurrences: "++id, termId, documentId",
+      cache: "&key",
+    });
   }
 }
 

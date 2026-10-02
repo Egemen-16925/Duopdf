@@ -23,6 +23,7 @@
     "pdfjs-dist": "^6.3.289",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "wink-lemmatizer": "^3.0.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {
