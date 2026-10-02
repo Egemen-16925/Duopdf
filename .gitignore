@@ -26,3 +26,12 @@ dist-ssr
 # Secrets (API anahtarlari asla repoya girmez)
 .env
 .env.*
+
+# pdf.js varliklari (vite derlemede kopyalanir)
+public/pdfjs/
+
+# Yerel tarayici test sayfasi (Tauri taklidi)
+harness.html
+src/__harness.tsx
+public/__harness/
+.claude/launch.json
