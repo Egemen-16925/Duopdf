@@ -335,3 +335,5 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Ayarlar yeniden yapılandı: "etkin profil" kalktı; sağlayıcılar (adres + anahtar) ve rol atamaları (`roles.fast|strong|vision = { profileId, model }`). Eski biçim açılışta otomatik taşınır. İstekler `AiTarget` (sağlayıcı + model) alır.
 - 2026-10-02: Tarayıcının `<datalist>` öneri listesi sayfa kayınca yerinde kaldığı için kendi model seçme kutumuz (`ModelInput`) kullanılıyor.
 - 2026-10-02: PPTX metin görünümü SmartArt (diagrams/data), grafik başlıkları, `mc:AlternateContent` ve konuşmacı notlarını da okuyor. Egemen'in bildirdiği "çoğu metin görünmüyor" sorunu için; gerçek dosyayla doğrulanması bekleniyor.
+- 2026-10-03: OCR katmanı `pointer-events: none` (yalnızca OCR kelimeleri tıklanabilir); aksi hâlde logo gibi küçük bir resmi olan sayfalarda gerçek metne tıklanamıyordu (Egemen'in PWA slaytlarında bulundu).
+- 2026-10-03: Commit kimliği bu depoda `Egemen-16925 <240976138+Egemen-16925@users.noreply.github.com>` (yerel git ayarı).
