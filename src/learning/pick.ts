@@ -1,17 +1,32 @@
 import { tokenize, type Token } from "./lemma";
 import { sentenceAround } from "./sentence";
-import { buildTextMap, offsetOf, rangeFor, type TextMode } from "./textMap";
+import { buildTextMap, offsetOf, rangeFor, type TextMap, type TextMode } from "./textMap";
 
-/** Kullanıcının tıkladığı kelime ya da seçtiği öbek. */
+/** Kullanıcının tıkladığı kelime ya da seçtiği kısa öbek. */
 export interface WordPick {
+  kind: "word";
   /** Belgede görünen hâli ("carried out"). */
   surface: string;
   tokens: Token[];
   sentence: string;
+  /** Kelimenin geçtiği cümlenin sayfadaki aralığı ("Cümleyi çevir" için). */
+  sentenceRange: Range | null;
   rect: DOMRect;
 }
 
+/** Çevrilecek cümle(ler): uzun seçim ya da Alt + tıklama. */
+export interface SentencePick {
+  kind: "sentence";
+  text: string;
+  range: Range | null;
+  rect: DOMRect;
+}
+
+export type Pick = WordPick | SentencePick;
+
 const MAX_WORDS = 6;
+/** Tek seferde çevrilecek en uzun metin (birkaç cümle). */
+export const MAX_SENTENCE_CHARS = 1200;
 
 function caretAt(x: number, y: number): { node: Node; offset: number } | null {
   const doc = document as Document & {
@@ -23,27 +38,39 @@ function caretAt(x: number, y: number): { node: Node; offset: number } | null {
   return range ? { node: range.startContainer, offset: range.startOffset } : null;
 }
 
-function build(root: Element, mode: TextMode, start: number, end: number, rectOverride?: DOMRect): WordPick | null {
-  const map = buildTextMap(root, mode);
-  const tokens = tokenize(map.text).filter((t) => t.end > start && t.start < end);
-  if (tokens.length === 0 || tokens.length > MAX_WORDS) return null;
+function sentencePick(map: TextMap, start: number, end: number, rect?: DOMRect): SentencePick | null {
+  const s = sentenceAround(map.text, start, end);
+  if (!s.text) return null;
+  const range = rangeFor(map, s.start, s.end);
+  const box = rect ?? range?.getBoundingClientRect();
+  return box ? { kind: "sentence", text: s.text, range, rect: box } : null;
+}
+
+function wordPick(map: TextMap, tokens: Token[], rect?: DOMRect): WordPick | null {
   const first = tokens[0];
   const last = tokens[tokens.length - 1];
-  const rect = rectOverride ?? rangeFor(map, first.start, last.end)?.getBoundingClientRect();
-  if (!rect) return null;
+  const box = rect ?? rangeFor(map, first.start, last.end)?.getBoundingClientRect();
+  if (!box) return null;
+  const s = sentenceAround(map.text, first.start, last.end);
   return {
+    kind: "word",
     surface: map.text.slice(first.start, last.end).replace(/\s+/g, " "),
     tokens: tokenize(map.text.slice(first.start, last.end)),
-    sentence: sentenceAround(map.text, first.start, last.end).text,
-    rect,
+    sentence: s.text,
+    sentenceRange: rangeFor(map, s.start, s.end),
+    rect: box,
   };
 }
 
 /**
- * Fare bırakıldığında: seçim varsa seçilen öbeği, yoksa imlecin altındaki kelimeyi döndürür.
+ * Fare bırakıldığında:
+ * - kısa seçim (en çok 6 kelime, tek cümle içinde) → kelime/öbek,
+ * - daha uzun seçim → seçimi kapsayan cümle(ler),
+ * - Alt + tıklama → tıklanan kelimenin cümlesi,
+ * - tıklama → imlecin altındaki kelime.
  * `rootSelector` metin kökünü (PDF metin katmanı, akan metin bölümü) bulur.
  */
-export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextMode): { pick: WordPick; root: Element } | null {
+export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextMode): { pick: Pick; root: Element } | null {
   const selection = window.getSelection();
   if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
@@ -53,7 +80,11 @@ export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextM
     const start = offsetOf(map, range.startContainer, range.startOffset);
     const end = offsetOf(map, range.endContainer, range.endOffset);
     if (start == null || end == null || end <= start) return null;
-    const pick = build(root, mode, start, end, range.getBoundingClientRect());
+    const tokens = tokenize(map.text).filter((t) => t.end > start && t.start < end);
+    if (tokens.length === 0) return null;
+    const crossesSentence = sentenceAround(map.text, start, end).text !== sentenceAround(map.text, start).text;
+    const rect = range.getBoundingClientRect();
+    const pick = tokens.length <= MAX_WORDS && !crossesSentence ? wordPick(map, tokens, rect) : sentencePick(map, start, end, rect);
     return pick ? { pick, root } : null;
   }
 
@@ -66,13 +97,18 @@ export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextM
   if (offset == null) return null;
   const token = tokenize(map.text).find((t) => t.start <= offset && offset <= t.end);
   if (!token) return null;
-  const pick = build(root, mode, token.start, token.end);
-  if (!pick) return null;
+  const tokenRect = rangeFor(map, token.start, token.end)?.getBoundingClientRect();
   // Kelimenin uzağındaki boşluğa tıklandıysa sayma.
-  const r = pick.rect;
   const pad = 3;
-  if (e.clientX < r.left - pad || e.clientX > r.right + pad || e.clientY < r.top - pad || e.clientY > r.bottom + pad) {
+  if (
+    !tokenRect ||
+    e.clientX < tokenRect.left - pad ||
+    e.clientX > tokenRect.right + pad ||
+    e.clientY < tokenRect.top - pad ||
+    e.clientY > tokenRect.bottom + pad
+  ) {
     return null;
   }
-  return { pick, root };
+  const pick = e.altKey ? sentencePick(map, token.start, token.end) : wordPick(map, [token], tokenRect);
+  return pick ? { pick, root } : null;
 }

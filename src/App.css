@@ -962,3 +962,25 @@ pre {
 .occurrence-sentence {
   margin: 0 0 2px;
 }
+
+/* Cümle çevirisi */
+
+::highlight(duo-sentence) {
+  background-color: rgba(59, 130, 246, 0.18);
+}
+
+.sentence-source {
+  max-height: 6.5em;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+
+.translation {
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.grammar-note {
+  font-size: 0.9rem;
+  color: var(--muted);
+}

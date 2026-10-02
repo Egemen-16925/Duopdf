@@ -75,6 +75,13 @@ export function setHighlightMatcher(next: Matcher) {
   schedulePublish();
 }
 
+/** Çeviri penceresi açıkken çevrilen cümleyi gösterir (null: kaldır). */
+export function setSentenceHighlight(range: Range | null) {
+  if (!supported) return;
+  if (range) CSS.highlights.set("duo-sentence", new Highlight(range));
+  else CSS.highlights.delete("duo-sentence");
+}
+
 let flashTimer: number | undefined;
 
 /** Bir aralığı kısa süre mavi yakar (kelime listesinden "cümleye git"). */

@@ -12,7 +12,8 @@ import {
 } from "../db/documents";
 import { formatFromPath } from "../formats/types";
 import type { Jump } from "../learning/jump";
-import type { WordPick } from "../learning/pick";
+import type { Pick } from "../learning/pick";
+import { SentencePopup } from "../learning/SentencePopup";
 import { WordPopup, type PickLocation } from "../learning/WordPopup";
 import type { ProviderProfile } from "../settings/providers";
 import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
@@ -60,7 +61,7 @@ export function ReaderPage({ profile, ref }: Props) {
   const [notice, setNotice] = useState<Notice>(null);
   const [dragging, setDragging] = useState(false);
   const [office, setOffice] = useState<OfficeAvailability>({ word: false, powerpoint: false });
-  const [popup, setPopup] = useState<{ pick: WordPick; location: PickLocation } | null>(null);
+  const [popup, setPopup] = useState<{ pick: Pick; location: PickLocation; documentHash: string } | null>(null);
   const closePopup = useCallback(() => setPopup(null), []);
 
   const tabbarRef = useRef<HTMLDivElement>(null);
@@ -193,9 +194,18 @@ export function ReaderPage({ profile, ref }: Props) {
     },
   }));
 
-  function handlePick(tab: Tab, view: "text" | "original", pick: WordPick, page: number) {
-    setPopup({ pick, location: { documentId: tab.record.id, page, view } });
+  function handlePick(tab: Tab, view: "text" | "original", pick: Pick, page: number) {
+    setPopup({ pick, location: { documentId: tab.record.id, page, view }, documentHash: tab.record.hash });
   }
+
+  /** Kelime penceresinden "Cümleyi çevir": aynı yerde cümle penceresine geç. */
+  const translateWordSentence = useCallback(() => {
+    setPopup((p) =>
+      p && p.pick.kind === "word"
+        ? { ...p, pick: { kind: "sentence", text: p.pick.sentence, range: p.pick.sentenceRange, rect: p.pick.rect } }
+        : p,
+    );
+  }, []);
 
   async function openPaths(paths: string[]) {
     for (const path of paths) await openPath(path);
@@ -261,8 +271,22 @@ export function ReaderPage({ profile, ref }: Props) {
   return (
     <div className="reader">
       {dragging && <div className="drop-overlay">Açmak için bırak</div>}
-      {popup && (
-        <WordPopup pick={popup.pick} location={popup.location} profile={profile} onClose={closePopup} />
+      {popup?.pick.kind === "word" && (
+        <WordPopup
+          pick={popup.pick}
+          location={popup.location}
+          profile={profile}
+          onClose={closePopup}
+          onTranslateSentence={translateWordSentence}
+        />
+      )}
+      {popup?.pick.kind === "sentence" && (
+        <SentencePopup
+          pick={popup.pick}
+          source={{ documentHash: popup.documentHash, page: popup.location.page }}
+          profile={profile}
+          onClose={closePopup}
+        />
       )}
 
       <div ref={tabbarRef} className="tabbar" role="tablist">

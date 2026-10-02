@@ -6,14 +6,14 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import { useEffect, useRef, useState } from "react";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
-import { pickFromPointer, type WordPick } from "../learning/pick";
+import { pickFromPointer, type Pick } from "../learning/pick";
 
 interface Props {
   pdf: PDFDocumentProxy;
   initialPage: number;
   onPageChange(page: number): void;
   /** Kelimeye tıklanınca ya da öbek seçilince (sayfa numarasıyla). */
-  onPick?(pick: WordPick, page: number): void;
+  onPick?(pick: Pick, page: number): void;
   jump?: Jump;
 }
 

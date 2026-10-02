@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReflowDoc } from "../formats/types";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
-import { pickFromPointer, type WordPick } from "../learning/pick";
+import { pickFromPointer, type Pick } from "../learning/pick";
 import { locate, scrollTopFor, type SectionBox } from "./position";
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
   initialOffset: number;
   onPositionChange(section: number, offset: number): void;
   /** Kelimeye tıklanınca ya da öbek seçilince (bölüm numarasıyla, 1'den başlar). */
-  onPick?(pick: WordPick, section: number): void;
+  onPick?(pick: Pick, section: number): void;
   jump?: Jump;
 }
 
