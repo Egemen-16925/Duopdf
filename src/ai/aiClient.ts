@@ -243,8 +243,18 @@ export async function testConnection(profile: ProviderProfile): Promise<Connecti
   }).catch((e) => {
     // Kısa yanıt sınırı düşünen modellerde boş yanıta yol açabilir; HTTP 200 geldiyse bağlantı sağlamdır.
     if (e instanceof AiError && e.kind === "badResponse" && e.status === 200) return null;
+    // Hatalı anahtar anında reddedilir; zaman aşımı, isteğin kabul edilip modelde beklediğini gösterir.
+    if (e instanceof AiError && e.kind === "timeout") return "timeout" as const;
     throw e;
   });
+  if (res === "timeout") {
+    return {
+      ok: false,
+      message:
+        `Anahtar kabul edildi gibi görünüyor (yetki hatası gelmedi), ama "${model}" 60 saniyede yanıt vermedi. ` +
+        "Model şu an yoğun olabilir; başka bir model seçip tekrar dene.",
+    };
+  }
   const ms = res ? ` ${res.ms} ms.` : "";
   return { ok: true, message: `Bağlantı başarılı: anahtar geçerli, "${model}" yanıt verdi.${ms}` };
 }

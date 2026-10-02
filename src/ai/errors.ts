@@ -40,7 +40,13 @@ export function errorForStatus(status: number, body: string): AiError {
     case 401:
       return new AiError("auth", "API anahtarı hatalı veya geçersiz (401).", status, detail);
     case 403:
-      return new AiError("auth", "Bu anahtarın bu modele erişim izni yok (403).", status, detail);
+      // NVIDIA hatalı anahtarda 401 değil 403 döner.
+      return new AiError(
+        "auth",
+        "API anahtarı hatalı ya da bu anahtarın bu modele erişim izni yok (403).",
+        status,
+        detail,
+      );
     case 404:
       return new AiError(
         "notFound",

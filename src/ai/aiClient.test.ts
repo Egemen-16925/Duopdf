@@ -56,6 +56,14 @@ describe("chat", () => {
     expect(err.detail).toBe("Invalid key");
   });
 
+  it("maps 403 to an auth error that also mentions a wrong key (NVIDIA answers 403 for bad keys)", async () => {
+    fetchMock.mockResolvedValueOnce(response(403, { status: 403, title: "Forbidden", detail: "Authorization failed" }));
+    const err = await chat(profile, { model: "m", messages: [] }).catch((e) => e);
+    expect(err.kind).toBe("auth");
+    expect(err.message).toContain("API anahtarı");
+    expect(err.detail).toBe("Authorization failed");
+  });
+
   it("maps 404 to notFound", async () => {
     fetchMock.mockResolvedValueOnce(response(404, { detail: "Function not found" }));
     await expect(chat(profile, { model: "m", messages: [] })).rejects.toMatchObject({ kind: "notFound", status: 404 });
@@ -176,6 +184,23 @@ describe("listModels / testConnection", () => {
     const report = await testConnection(profile);
     expect(report.ok).toBe(true);
     expect(sentBody(1).model).toBe("fast/model");
+  });
+
+  it("explains a model timeout as an accepted key with a busy model", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce(response(200, { data: [] }));
+    fetchMock.mockImplementationOnce(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted")))),
+    );
+    const promise = testConnection(profile);
+    const assertion = expect(promise).resolves.toMatchObject({ ok: false });
+    await vi.advanceTimersByTimeAsync(60_000);
+    await assertion;
+    const report = await promise;
+    expect(report.message).toContain("fast/model");
+    expect(report.message).toContain("başka bir model");
+    vi.useRealTimers();
   });
 
   it("surfaces a bad key from the chat request", async () => {
