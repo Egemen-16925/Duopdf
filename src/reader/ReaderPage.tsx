@@ -367,18 +367,19 @@ export function ReaderPage({ profile, ref }: Props) {
                 </div>
               )}
               {t.view === "text" && t.content.noText && (
-              <div className="msg error reader-notice">
-                {t.content.kind === "pdf"
-                  ? "Bu PDF taranmış görünüyor: sayfalarda seçilebilir metin yok. Kelime işaretleme ve çeviri bu belgede çalışmaz (OCR desteklenmiyor)."
-                  : "Bu belgede okunabilir metin bulunamadı."}
-              </div>
-            )}
+                <div className={t.content.kind === "pdf" ? "msg info reader-notice" : "msg error reader-notice"}>
+                  {t.content.kind === "pdf"
+                    ? "Bu PDF taranmış görünüyor. Sayfalardaki yazılar sayfa ekrana geldikçe OCR ile okunuyor (sayfa başına birkaç saniye); okunan metin kusurlu olabilir."
+                    : "Bu belgede okunabilir metin bulunamadı."}
+                </div>
+              )}
               <div className="view-stack">
                 {/* Görünümler arasında geçince konum kaybolmasın diye ikisi de yerinde kalır. */}
                 <div className={t.view === "text" ? "view-layer" : "view-layer inactive"}>
                   {t.content.kind === "pdf" ? (
                     <PdfViewer
                       pdf={t.content.pdf}
+                      ocrKey={`${t.record.hash}:text`}
                       initialPage={t.record.lastPage}
                       onPageChange={(page) => handlePosition(t.record.id, page)}
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
@@ -405,6 +406,7 @@ export function ReaderPage({ profile, ref }: Props) {
                   <div className={t.view === "original" ? "view-layer" : "view-layer inactive"}>
                     <PdfViewer
                       pdf={t.original}
+                      ocrKey={`${t.record.hash}:original`}
                       initialPage={t.record.originalPage ?? 1}
                       onPageChange={(page) => saveOriginalPage(db, t.record.id, page)}
                       onPick={(pick, page) => handlePick(t, "original", pick, page)}

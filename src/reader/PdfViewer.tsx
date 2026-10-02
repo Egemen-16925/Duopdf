@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
+import { PdfPageOcr } from "../ocr/pdfPages";
 
 interface Props {
   pdf: PDFDocumentProxy;
@@ -15,6 +16,10 @@ interface Props {
   /** Kelimeye tıklanınca ya da öbek seçilince (sayfa numarasıyla). */
   onPick?(pick: Pick, page: number): void;
   jump?: Jump;
+  /** Verilirse sayfalardaki görseller OCR ile okunur: "<belge hash>:<görünüm>". */
+  ocrKey?: string;
+  /** Araç çubuğuna eklenecek düğmeler (ör. "Yapay zekâ ile oku"). */
+  extraTools?: React.ReactNode;
 }
 
 const ZOOM_PRESETS: { value: string; label: string }[] = [
@@ -27,7 +32,7 @@ const ZOOM_PRESETS: { value: string; label: string }[] = [
   { value: "2", label: "%200" },
 ];
 
-export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Props) {
+export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, extraTools }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pdfViewer = useRef<PDFViewer | null>(null);
@@ -43,6 +48,7 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Prop
   const [pageInput, setPageInput] = useState(String(initialPage));
   const [scale, setScale] = useState(1);
   const [scaleValue, setScaleValue] = useState("page-width");
+  const [ocrPending, setOcrPending] = useState(0);
 
   useEffect(() => {
     const container = containerRef.current!;
@@ -59,15 +65,28 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Prop
     });
     // Her sayfanın metin katmanı çizilince (ilk açılış, kaydırma, yakınlaştırma) vurguları hesapla.
     const textLayers = new Set<Element>();
+    const tryPendingJump = (pageNumber: number, root: Element) => {
+      const pending = pendingJump.current;
+      if (pending && pending.page === pageNumber && flashSentence(root, "pdf", pending.sentence)) pendingJump.current = null;
+    };
+    // Görsellerdeki yazılar (taranmış sayfalar, şekiller) OCR ile okunur ve ayrı bir katman olarak eklenir.
+    const ocr = ocrKey ? new PdfPageOcr(pdf, ocrKey, setOcrPending) : null;
     eventBus.on("textlayerrendered", (evt: { pageNumber: number; source: { textLayer?: { div: HTMLElement } } }) => {
       const div = evt.source.textLayer?.div;
       if (!div) return;
       textLayers.add(div);
       trackRoot(div, "pdf");
-      const pending = pendingJump.current;
-      if (pending && pending.page === evt.pageNumber) {
-        pendingJump.current = null;
-        flashSentence(div, "pdf", pending.sentence);
+      tryPendingJump(evt.pageNumber, div);
+      const pageDiv = div.closest<HTMLElement>(".page");
+      if (ocr && pageDiv) {
+        ocr
+          .attach(evt.pageNumber, pageDiv, div)
+          .then((layer) => {
+            if (!layer) return;
+            textLayers.add(layer);
+            tryPendingJump(evt.pageNumber, layer);
+          })
+          .catch((e) => console.warn("OCR:", e));
       }
     });
     eventBus.on("pagechanging", ({ pageNumber }: { pageNumber: number }) => {
@@ -134,8 +153,9 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Prop
     pendingJump.current = jump;
     if (!ready.current) return; // pagesinit içinde uygulanacak
     viewer.currentPageNumber = Math.min(Math.max(jump.page, 1), pdf.numPages);
-    const root = containerRef.current?.querySelector(`.page[data-page-number="${jump.page}"] .textLayer`);
-    if (root?.textContent && flashSentence(root, "pdf", jump.sentence)) pendingJump.current = null;
+    // Cümle gerçek metinde ya da OCR katmanında olabilir.
+    const roots = containerRef.current?.querySelectorAll(`.page[data-page-number="${jump.page}"] .textLayer`) ?? [];
+    if ([...roots].some((root) => root.textContent && flashSentence(root, "pdf", jump.sentence))) pendingJump.current = null;
   }, [jump?.nonce]);
 
   function goToPage(value: string) {
@@ -194,6 +214,13 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Prop
         <button className="secondary" onClick={() => pdfViewer.current?.updateScale({ steps: 1 })} title="Yakınlaştır">
           +
         </button>
+        {ocrPending > 0 && (
+          <>
+            <span className="toolbar-sep" />
+            <span className="ocr-status muted">Görsellerdeki yazılar okunuyor…</span>
+          </>
+        )}
+        {extraTools}
       </div>
       <div className="viewer-wrap">
         <div ref={containerRef} className="viewer-container">

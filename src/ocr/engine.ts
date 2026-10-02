@@ -55,11 +55,12 @@ export async function prepareImage(blob: Blob): Promise<OffscreenCanvas> {
 }
 
 /** Görseldeki yazıyı okur. İşler sıraya girer; biri hata verse de sıradakiler çalışır. */
-export function recognizeImage(image: OcrImage): Promise<OcrResult> {
+export function recognizeImage(image: OcrImage, rectangle?: Tesseract.Rectangle): Promise<OcrResult> {
   const job = queue.then(async () => {
     const { width, height } = await sizeOf(image);
     const worker = await getWorker();
-    const { data } = await worker.recognize(image as Tesseract.ImageLike, {}, { blocks: true, text: false });
+    const options = rectangle ? { rectangle } : {};
+    const { data } = await worker.recognize(image as Tesseract.ImageLike, options, { blocks: true, text: false });
     return fromTesseract(data as unknown as TesseractPage, width, height);
   });
   queue = job.catch(() => undefined);
