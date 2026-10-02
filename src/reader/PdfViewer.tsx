@@ -4,11 +4,17 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
 import "pdfjs-dist/web/pdf_viewer.css";
 import { useEffect, useRef, useState } from "react";
+import { trackRoot, untrackRoot } from "../learning/highlights";
+import { flashSentence, type Jump } from "../learning/jump";
+import { pickFromPointer, type WordPick } from "../learning/pick";
 
 interface Props {
   pdf: PDFDocumentProxy;
   initialPage: number;
   onPageChange(page: number): void;
+  /** Kelimeye tıklanınca ya da öbek seçilince (sayfa numarasıyla). */
+  onPick?(pick: WordPick, page: number): void;
+  jump?: Jump;
 }
 
 const ZOOM_PRESETS: { value: string; label: string }[] = [
@@ -21,12 +27,17 @@ const ZOOM_PRESETS: { value: string; label: string }[] = [
   { value: "2", label: "%200" },
 ];
 
-export function PdfViewer({ pdf, initialPage, onPageChange }: Props) {
+export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pdfViewer = useRef<PDFViewer | null>(null);
   const onPageChangeRef = useRef(onPageChange);
   onPageChangeRef.current = onPageChange;
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
+  /** Sayfa ya da metin katmanı henüz hazır değilken gelen "cümleye git" isteği. */
+  const pendingJump = useRef<Jump | null>(null);
+  const ready = useRef(false);
 
   const [page, setPage] = useState(initialPage);
   const [pageInput, setPageInput] = useState(String(initialPage));
@@ -42,8 +53,22 @@ export function PdfViewer({ pdf, initialPage, onPageChange }: Props) {
     pdfViewer.current = viewer;
 
     eventBus.on("pagesinit", () => {
+      ready.current = true;
       viewer.currentScaleValue = "page-width";
-      viewer.currentPageNumber = Math.min(Math.max(initialPage, 1), pdf.numPages);
+      viewer.currentPageNumber = Math.min(Math.max(pendingJump.current?.page ?? initialPage, 1), pdf.numPages);
+    });
+    // Her sayfanın metin katmanı çizilince (ilk açılış, kaydırma, yakınlaştırma) vurguları hesapla.
+    const textLayers = new Set<Element>();
+    eventBus.on("textlayerrendered", (evt: { pageNumber: number; source: { textLayer?: { div: HTMLElement } } }) => {
+      const div = evt.source.textLayer?.div;
+      if (!div) return;
+      textLayers.add(div);
+      trackRoot(div, "pdf");
+      const pending = pendingJump.current;
+      if (pending && pending.page === evt.pageNumber) {
+        pendingJump.current = null;
+        flashSentence(div, "pdf", pending.sentence);
+      }
     });
     eventBus.on("pagechanging", ({ pageNumber }: { pageNumber: number }) => {
       setPage(pageNumber);
@@ -72,8 +97,16 @@ export function PdfViewer({ pdf, initialPage, onPageChange }: Props) {
         openUrl(link.href);
       }
     };
+    // Kelimeye tıklama / öbek seçme
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest("a")) return;
+      const result = pickFromPointer(e, ".textLayer", "pdf");
+      const page = Number(result?.root.closest<HTMLElement>(".page")?.dataset.pageNumber);
+      if (result && page) onPickRef.current?.(result.pick, page);
+    };
     container.addEventListener("wheel", onWheel, { passive: false });
     container.addEventListener("click", onClick);
+    container.addEventListener("mouseup", onMouseUp);
     // Pencere boyutu değişince "sayfa genişliği" gibi hazır ayarlar yeniden hesaplansın.
     const resizeObserver = new ResizeObserver(() => {
       const value = viewer.currentScaleValue;
@@ -85,11 +118,25 @@ export function PdfViewer({ pdf, initialPage, onPageChange }: Props) {
       resizeObserver.disconnect();
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
+      container.removeEventListener("mouseup", onMouseUp);
+      textLayers.forEach(untrackRoot);
+      ready.current = false;
       viewer.setDocument(null as unknown as PDFDocumentProxy);
       linkService.setDocument(null);
       pdfViewer.current = null;
     };
   }, [pdf]);
+
+  // Kelime listesinden gelen "cümleye git": sayfaya git, metin katmanı hazırsa cümleyi yak.
+  useEffect(() => {
+    const viewer = pdfViewer.current;
+    if (!jump || !viewer) return;
+    pendingJump.current = jump;
+    if (!ready.current) return; // pagesinit içinde uygulanacak
+    viewer.currentPageNumber = Math.min(Math.max(jump.page, 1), pdf.numPages);
+    const root = containerRef.current?.querySelector(`.page[data-page-number="${jump.page}"] .textLayer`);
+    if (root?.textContent && flashSentence(root, "pdf", jump.sentence)) pendingJump.current = null;
+  }, [jump?.nonce]);
 
   function goToPage(value: string) {
     const n = Number.parseInt(value, 10);

@@ -25,6 +25,34 @@ fn read_document(path: String) -> Result<tauri::ipc::Response, String> {
     }
 }
 
+fn require_json(path: &Path) -> Result<(), String> {
+    let is_json = path
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("json"))
+        .unwrap_or(false);
+    if is_json {
+        Ok(())
+    } else {
+        Err("Yedek dosyası .json uzantılı olmalı.".into())
+    }
+}
+
+/// Öğrenme verisi yedeğini yazar (yalnızca .json).
+#[tauri::command]
+fn write_backup(path: String, contents: String) -> Result<(), String> {
+    let p = Path::new(&path);
+    require_json(p)?;
+    std::fs::write(p, contents).map_err(|e| format!("Yedek yazılamadı: {e}"))
+}
+
+/// Öğrenme verisi yedeğini okur (yalnızca .json).
+#[tauri::command]
+fn read_backup(path: String) -> Result<String, String> {
+    let p = Path::new(&path);
+    require_json(p)?;
+    std::fs::read_to_string(p).map_err(|e| format!("Yedek okunamadı: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -34,6 +62,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             read_document,
+            write_backup,
+            read_backup,
             office::office_available,
             office::convert_with_office
         ])

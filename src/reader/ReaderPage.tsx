@@ -1,7 +1,7 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
-import { db, type DocumentRecord } from "../db/db";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { db, type DocumentRecord, type OccurrenceRecord } from "../db/db";
 import {
   clearRecent,
   hideFromRecent,
@@ -11,6 +11,10 @@ import {
   savePosition,
 } from "../db/documents";
 import { formatFromPath } from "../formats/types";
+import type { Jump } from "../learning/jump";
+import type { WordPick } from "../learning/pick";
+import { WordPopup, type PickLocation } from "../learning/WordPopup";
+import type { ProviderProfile } from "../settings/providers";
 import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
@@ -25,6 +29,18 @@ interface Tab {
   view: "text" | "original";
   original?: PDFDocumentProxy;
   converting?: boolean;
+  /** Kelime listesinden gelen "cümleye git" (hangi görünüm için). */
+  jump?: Jump & { view: "text" | "original" };
+}
+
+export interface ReaderHandle {
+  /** Belgeyi açar (gerekirse) ve kelimenin geçtiği cümleye gider. */
+  openAt(occurrence: OccurrenceRecord): Promise<void>;
+}
+
+interface Props {
+  profile: ProviderProfile | null;
+  ref?: Ref<ReaderHandle>;
 }
 
 type Notice = { kind: "info" | "error"; text: string; missing?: DocumentRecord } | null;
@@ -35,7 +51,7 @@ function formatDate(ms: number): string {
   return new Date(ms).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function ReaderPage() {
+export function ReaderPage({ profile, ref }: Props) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   /** Etkin sekmedeki belge kimliği; null ise belge listesi gösterilir. */
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -44,6 +60,8 @@ export function ReaderPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const [dragging, setDragging] = useState(false);
   const [office, setOffice] = useState<OfficeAvailability>({ word: false, powerpoint: false });
+  const [popup, setPopup] = useState<{ pick: WordPick; location: PickLocation } | null>(null);
+  const closePopup = useCallback(() => setPopup(null), []);
 
   const tabbarRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef(tabs);
@@ -109,11 +127,12 @@ export function ReaderPage() {
     pending.current.set(id, { page, offset, timer });
   }
 
-  async function openPath(path: string, expected?: DocumentRecord) {
+  /** Belgeyi açar ve sekmesindeki belge kimliğini döndürür (açılamazsa null). */
+  async function openPath(path: string, expected?: DocumentRecord): Promise<number | null> {
     const format = formatFromPath(path);
     if (!format) {
       setNotice({ kind: "error", text: `Bu dosya türü desteklenmiyor: ${fileName(path)}` });
-      return;
+      return null;
     }
     setLoading(true);
     setNotice(null);
@@ -124,7 +143,7 @@ export function ReaderPage() {
       const alreadyOpen = tabsRef.current.find((t) => t.record.hash === hash);
       if (alreadyOpen) {
         setActiveId(alreadyOpen.record.id);
-        return;
+        return alreadyOpen.record.id;
       }
       if (expected) await flushPosition(expected.id);
       const name = fileName(path);
@@ -138,6 +157,7 @@ export function ReaderPage() {
           text: `Seçtiğin dosyanın içeriği "${expected.name}" ile aynı değil; ayrı bir belge olarak açıldı.`,
         });
       }
+      return record.id;
     } catch (e) {
       if (e instanceof FileNotFoundError && expected) {
         setNotice({
@@ -152,6 +172,29 @@ export function ReaderPage() {
       setLoading(false);
       refreshRecent();
     }
+    return null;
+  }
+
+  useImperativeHandle(ref, () => ({
+    async openAt(occ) {
+      const record = await db.documents.get(occ.documentId);
+      if (!record) {
+        setNotice({ kind: "error", text: "Bu kelimenin geçtiği belgenin kaydı bulunamadı." });
+        return;
+      }
+      const id = await openPath(record.filePath, record);
+      if (id !== record.id) return;
+      // Yeni açılan sekmenin durumu işlensin.
+      await new Promise((r) => setTimeout(r));
+      const tab = tabsRef.current.find((t) => t.record.id === id);
+      if (!tab) return;
+      if (occ.view === "original" && tab.view !== "original") await setView(tab, "original");
+      patchTab(id, { jump: { page: occ.page, sentence: occ.sentence, view: occ.view, nonce: Date.now() } });
+    },
+  }));
+
+  function handlePick(tab: Tab, view: "text" | "original", pick: WordPick, page: number) {
+    setPopup({ pick, location: { documentId: tab.record.id, page, view } });
   }
 
   async function openPaths(paths: string[]) {
@@ -218,6 +261,9 @@ export function ReaderPage() {
   return (
     <div className="reader">
       {dragging && <div className="drop-overlay">Açmak için bırak</div>}
+      {popup && (
+        <WordPopup pick={popup.pick} location={popup.location} profile={profile} onClose={closePopup} />
+      )}
 
       <div ref={tabbarRef} className="tabbar" role="tablist">
         <button
@@ -303,6 +349,8 @@ export function ReaderPage() {
                       pdf={t.content.pdf}
                       initialPage={t.record.lastPage}
                       onPageChange={(page) => handlePosition(t.record.id, page)}
+                      onPick={(pick, page) => handlePick(t, "text", pick, page)}
+                      jump={t.jump?.view === "text" ? t.jump : undefined}
                     />
                   ) : (
                     <ReflowViewer
@@ -310,6 +358,8 @@ export function ReaderPage() {
                       initialSection={t.record.lastPage}
                       initialOffset={t.record.lastOffset}
                       onPositionChange={(section, offset) => handlePosition(t.record.id, section, offset)}
+                      onPick={(pick, section) => handlePick(t, "text", pick, section)}
+                      jump={t.jump?.view === "text" ? t.jump : undefined}
                     />
                   )}
                 </div>
@@ -319,6 +369,8 @@ export function ReaderPage() {
                       pdf={t.original}
                       initialPage={t.record.originalPage ?? 1}
                       onPageChange={(page) => saveOriginalPage(db, t.record.id, page)}
+                      onPick={(pick, page) => handlePick(t, "original", pick, page)}
+                      jump={t.jump?.view === "original" ? t.jump : undefined}
                     />
                   </div>
                 )}

@@ -1,14 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import type { OccurrenceRecord } from "./db/db";
+import { refreshTerms } from "./learning/store";
 import { ModelTestPage } from "./pages/ModelTestPage";
-import { ReaderPage } from "./reader/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
+import { WordsPage } from "./pages/WordsPage";
+import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
+import { activeProfile, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
-type Page = "reader" | "settings" | "modelTest";
+type Page = "reader" | "words" | "settings" | "modelTest";
 
 const NAV: { id: Page; label: string }[] = [
   { id: "reader", label: "Okuyucu" },
+  { id: "words", label: "Kelimeler" },
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
@@ -19,12 +23,19 @@ function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   // Profil kimliğine göre çekilmiş model listeleri (oturum boyunca saklanır).
   const [modelLists, setModelLists] = useState<Record<string, string[]>>({});
+  const readerRef = useRef<ReaderHandle>(null);
 
   useEffect(() => {
     loadProviderSettings()
       .then(setSettings)
       .catch((e) => setLoadError(String(e)));
+    refreshTerms();
   }, []);
+
+  function goToOccurrence(occurrence: OccurrenceRecord) {
+    setPage("reader");
+    readerRef.current?.openAt(occurrence);
+  }
 
   async function updateSettings(next: ProviderSettings) {
     await saveProviderSettings(next);
@@ -52,11 +63,12 @@ function App() {
       <div className="page-stack">
         {/* Okuyucu sayfa değişince kapanmasın ve kaydırma konumu kaybolmasın diye yerinde kalır, yalnızca görünmez olur. */}
         <div className={page === "reader" ? "page-layer" : "page-layer inactive"}>
-          <ReaderPage />
+          <ReaderPage ref={readerRef} profile={settings ? activeProfile(settings) : null} />
         </div>
         {page !== "reader" && (
           <main className="content page-layer">
             {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
+            {page === "words" && <WordsPage onGoTo={goToOccurrence} />}
             {settings && page === "settings" && (
               <SettingsPage
                 settings={settings}

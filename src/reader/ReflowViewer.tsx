@@ -1,6 +1,9 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReflowDoc } from "../formats/types";
+import { trackRoot, untrackRoot } from "../learning/highlights";
+import { flashSentence, type Jump } from "../learning/jump";
+import { pickFromPointer, type WordPick } from "../learning/pick";
 import { locate, scrollTopFor, type SectionBox } from "./position";
 
 interface Props {
@@ -8,6 +11,9 @@ interface Props {
   initialSection: number;
   initialOffset: number;
   onPositionChange(section: number, offset: number): void;
+  /** Kelimeye tıklanınca ya da öbek seçilince (bölüm numarasıyla, 1'den başlar). */
+  onPick?(pick: WordPick, section: number): void;
+  jump?: Jump;
 }
 
 const FONT_SIZES = [14, 16, 18, 20, 22, 26, 30];
@@ -22,11 +28,13 @@ function loadFontSize(): number {
   }
 }
 
-export function ReflowViewer({ doc, initialSection, initialOffset, onPositionChange }: Props) {
+export function ReflowViewer({ doc, initialSection, initialOffset, onPositionChange, onPick, jump }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const onPositionRef = useRef(onPositionChange);
   onPositionRef.current = onPositionChange;
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
   const position = useRef({ index: Math.max(initialSection - 1, 0), offset: initialOffset });
   const userScrolled = useRef(false);
   /** Programla ayarlanan son kaydırma konumu; bu konumdaki kaydırma olayı kullanıcıdan gelmez. */
@@ -53,6 +61,20 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
       if (!userScrolled.current) restore();
     });
   }, [doc]);
+
+  // Bölümleri vurgulamaya bağla (terimler değişince yeniden hesaplanır).
+  useEffect(() => {
+    const sections = sectionRefs.current.filter((el): el is HTMLElement => el != null);
+    sections.forEach((el) => trackRoot(el, "flow"));
+    return () => sections.forEach(untrackRoot);
+  }, [doc]);
+
+  // Kelime listesinden gelen "cümleye git".
+  useEffect(() => {
+    if (!jump) return;
+    const section = sectionRefs.current[jump.page - 1];
+    if (section && !flashSentence(section, "flow", jump.sentence)) section.scrollIntoView();
+  }, [jump?.nonce]);
 
   // Yazı boyutu değişince okunan yer kaymasın.
   useLayoutEffect(() => {
@@ -90,12 +112,21 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
       if (/^https?:/i.test(href)) openUrl(href);
       else if (href.startsWith("#")) el.querySelector(`[id="${CSS.escape(href.slice(1))}"]`)?.scrollIntoView();
     };
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest("a")) return;
+      const result = pickFromPointer(e, ".reflow-section", "flow");
+      if (!result) return;
+      const index = sectionRefs.current.indexOf(result.root as HTMLElement);
+      if (index >= 0) onPickRef.current?.(result.pick, index + 1);
+    };
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("click", onClick);
+    el.addEventListener("mouseup", onMouseUp);
     return () => {
       window.clearTimeout(timer);
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("click", onClick);
+      el.removeEventListener("mouseup", onMouseUp);
     };
   }, []);
 

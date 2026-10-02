@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { listModels, testConnection } from "../ai/aiClient";
 import { AiError } from "../ai/errors";
 import { newProfile, type ProviderProfile, type ProviderSettings } from "../settings/providers";
+import { BackupSection } from "./BackupSection";
 
 interface Props {
   settings: ProviderSettings;
@@ -110,6 +111,7 @@ export function SettingsPage({ settings, onChange, modelLists, onModelList }: Pr
         </button>
       </aside>
 
+      <div className="settings-main">
       <section className="profile-form">
         <h2>
           {saved.name} {isActive && <span className="badge ok">etkin</span>}
@@ -207,6 +209,8 @@ export function SettingsPage({ settings, onChange, modelLists, onModelList }: Pr
         {dirty && <p className="msg info">Kaydedilmemiş değişiklikler var. Testler formdaki değerlerle yapılır.</p>}
         {status && <p className={`msg ${status.kind}`}>{status.text}</p>}
       </section>
+      <BackupSection />
+      </div>
     </div>
   );
 }
