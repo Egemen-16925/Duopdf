@@ -1187,3 +1187,9 @@ pre {
 .inline-label select {
   width: auto;
 }
+
+/* Dokunmatik ekranda iki parmakla sıkıştırmayı uygulama işler; tek parmak kaydırır. */
+.image-scroll,
+.reflow-scroll {
+  touch-action: pan-x pan-y;
+}

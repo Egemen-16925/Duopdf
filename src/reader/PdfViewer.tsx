@@ -8,6 +8,7 @@ import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
 import { PdfPageOcr } from "../ocr/pdfPages";
+import { wheelZoomFactor, ZoomAccumulator } from "./zoomGesture";
 
 interface Props {
   pdf: PDFDocumentProxy;
@@ -102,11 +103,14 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     viewer.setDocument(pdf);
     linkService.setDocument(pdf);
 
-    // Ctrl + tekerlek ile yakınlaştırma
+    // Ctrl + tekerlek ve touchpad'de iki parmakla sıkıştırma: imlecin olduğu yere göre, yumuşak.
+    // (Dokunmatik ekranda sıkıştırmayı pdf.js kendisi yapar.)
+    const zoomAcc = new ZoomAccumulator();
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      viewer.updateScale({ steps: e.deltaY < 0 ? 1 : -1 });
+      const factor = zoomAcc.add(wheelZoomFactor(e), viewer.currentScale);
+      if (factor) viewer.updateScale({ scaleFactor: factor, origin: [e.clientX, e.clientY], drawingDelay: 400 });
     };
     // PDF içindeki dış bağlantılar uygulamanın içinde açılmasın, tarayıcıda açılsın.
     const onClick = (e: MouseEvent) => {

@@ -7,6 +7,7 @@ import { imageKey, ocrWithCache } from "../ocr/cache";
 import { prepareImage, recognizeImage } from "../ocr/engine";
 import { renderOcrLayer } from "../ocr/layer";
 import type { LoadedImage } from "./loadContent";
+import { attachPinch, wheelZoomFactor } from "./zoomGesture";
 
 interface Props {
   image: LoadedImage;
@@ -46,8 +47,33 @@ export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
 
   const fitScale = Math.min(2, Math.max(0.1, (available - 32) / image.width));
   const scale = zoom === "fit" ? fitScale : zoom;
-  const fitScaleRef = useRef(fitScale);
-  fitScaleRef.current = fitScale;
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+  /** Yakınlaştırmada imlecin altındaki noktanın ekrandaki yeri sabit kalsın. */
+  const anchor = useRef<{ x: number; y: number; px: number; py: number; ratio: number } | null>(null);
+
+  function zoomAt(factor: number, clientX: number, clientY: number) {
+    const el = scrollRef.current!;
+    const old = scaleRef.current;
+    const next = Math.min(4, Math.max(0.1, old * factor));
+    if (next === old) return;
+    const rect = el.getBoundingClientRect();
+    const px = clientX - rect.left;
+    const py = clientY - rect.top;
+    anchor.current = { x: el.scrollLeft + px, y: el.scrollTop + py, px, py, ratio: next / old };
+    setZoom(next);
+  }
+  const zoomAtRef = useRef(zoomAt);
+  zoomAtRef.current = zoomAt;
+
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    const el = scrollRef.current;
+    if (!a || !el) return;
+    anchor.current = null;
+    el.scrollLeft = a.x * a.ratio - a.px;
+    el.scrollTop = a.y * a.ratio - a.py;
+  }, [scale]);
 
   // Resmi tara (önbellekte varsa anında) ve görünmez metin katmanını kur.
   useEffect(() => {
@@ -77,19 +103,19 @@ export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
       const result = pickFromPointer(e, ".textLayer", "pdf");
       if (result) onPickRef.current?.(result.pick, 1);
     };
+    // Ctrl + tekerlek, touchpad ve dokunmatik ekranda sıkıştırma: imlecin/parmakların olduğu yere göre.
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      setZoom((z) => {
-        const current = z === "fit" ? fitScaleRef.current : z;
-        return Math.min(4, Math.max(0.1, current * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-      });
+      zoomAtRef.current(wheelZoomFactor(e), e.clientX, e.clientY);
     };
+    const detachPinch = attachPinch(el, (factor, cx, cy) => zoomAtRef.current(factor, cx, cy));
     el.addEventListener("mouseup", onMouseUp);
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("mouseup", onMouseUp);
       el.removeEventListener("wheel", onWheel);
+      detachPinch();
     };
   }, []);
 

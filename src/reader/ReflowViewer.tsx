@@ -5,6 +5,7 @@ import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
 import { replaceImagesWithText } from "../ocr/reflowImages";
+import { attachPinch, wheelZoomFactor } from "./zoomGesture";
 import { locate, scrollTopFor, type SectionBox } from "./position";
 
 interface Props {
@@ -132,14 +133,32 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
       const index = sectionRefs.current.indexOf(result.root as HTMLElement);
       if (index >= 0) onPickRef.current?.(result.pick, index + 1);
     };
+    // Ctrl + tekerlek / touchpad ve dokunmatik ekranda sıkıştırma: yazı boyutu.
+    let pinch = 1;
+    const zoomBy = (factor: number) => {
+      pinch *= factor;
+      if (pinch > 1.12 || pinch < 1 / 1.12) {
+        changeFontRef.current(pinch > 1 ? 1 : -1);
+        pinch = 1;
+      }
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoomBy(wheelZoomFactor(e));
+    };
+    const detachPinch = attachPinch(el, (factor) => zoomBy(factor));
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("click", onClick);
     el.addEventListener("mouseup", onMouseUp);
+    el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       window.clearTimeout(timer);
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("click", onClick);
       el.removeEventListener("mouseup", onMouseUp);
+      el.removeEventListener("wheel", onWheel);
+      detachPinch();
     };
   }, []);
 
@@ -148,9 +167,13 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
   }
 
   function changeFont(step: number) {
-    const i = FONT_SIZES.indexOf(fontSize) + step;
-    if (i >= 0 && i < FONT_SIZES.length) setFontSize(FONT_SIZES[i]);
+    setFontSize((size) => {
+      const i = FONT_SIZES.indexOf(size) + step;
+      return i >= 0 && i < FONT_SIZES.length ? FONT_SIZES[i] : size;
+    });
   }
+  const changeFontRef = useRef(changeFont);
+  changeFontRef.current = changeFont;
 
   const sections = doc.sections;
 
