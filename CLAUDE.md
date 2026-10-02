@@ -44,6 +44,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
 - [ ] Faz 4b — Kalemle not alma
+- [ ] Faz 4c — Görsellerden metin (OCR)
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
@@ -77,7 +78,7 @@ Kullanıcı API anahtarını, sağlayıcıyı veya modeli değiştirdiğinde hi�
 - **CORS:** `integrate.api.nvidia.com` tarayıcıdan doğrudan çağrıya izin vermiyor. AI çağrıları için tarayıcının `fetch`'ini kullanma, hep HTTP eklentisinden geç. Kullanıcı kendi `baseUrl`'ini girebildiği için eklentinin izin kapsamı `https://**` ve `http://localhost:*` (Ollama) olmalı.
 - **Geliştirme ve kurulu sürüm ayrı veri tutar:** `tauri dev` ile kurulu exe farklı origin kullandığından IndexedDB'leri ayrıdır. Egemen'e bunu Faz 3'te söyle; dışa/içe aktarma bu yüzden erken geliyor.
 - **PDF metni dağınık gelir:** Satır sonu tirelemeleri, çift sütun, üstbilgi ve altbilgi cümle bölmeyi bozar. Cümleye bölmeden önce temizle; bölme için `Intl.Segmenter` kullan.
-- **Taranmış PDF'lerde metin yoktur:** Metin katmanı boşsa kullanıcıya açıkça söyle. OCR kapsam dışı.
+- **Taranmış PDF'lerde metin yoktur:** Metin katmanı boşsa kullanıcıya açıkça söyle. OCR Faz 4c'de gelecek.
 - **Modeller bozuk JSON dönebilir:** Yanıtı şemayla (zod) doğrula, geçmezse hatayı modele gösterip bir kez yeniden dene, yine olmazsa kullanıcıya anlaşılır hata göster.
 - **Hız sınırı:** NVIDIA'nın ücretsiz uçları model başına sınırlıdır ve sınırlar yayımlanmıyor (topluluk yaklaşık dakikada 40 istek bildiriyor). 429 gelirse bekleyip yeniden dene; aynı girdiyi iki kez sorma (önbellek).
 - **PDF dosyasını kopyalama:** Dosyanın yolunu ve içerik özetini (hash) sakla. Dosya taşınmışsa yeniden seçtir; kelime kayıtları hash üzerinden eşleşir.
@@ -212,6 +213,17 @@ Her fazın sonunda "Faz kapanışı" adımlarını uygula.
 
 **Egemen'in testi:** Kalemle veya fareyle birkaç sayfaya çiz, sil, geri al; uygulamayı kapatıp aç: çizimler yerinde mi? Yakınlaştırınca çizim sayfayla birlikte ölçekleniyor mu? Dışa aktarılan dosya işe yarıyor mu?
 
+### Faz 4c — Görsellerden metin (OCR)
+
+- Yerel OCR: Tesseract.js (WASM), İngilizce dil verisi uygulamaya gömülü; internetsiz çalışır, aynı kod tablette de çalışır. Python veya sistem OCR'ı kullanılmaz.
+- Metin görünümü (EPUB, DOCX, PPTX metni): resimler gösterilmez; resmin yerine içindeki yazı düz metin olarak yazılır.
+- Orijinal görünüm ve PDF (taranmış sayfalar dahil): resim yerinde kalır, üstüne kelime kutularından görünmez bir metin katmanı konur; kelime işaretleme, vurgulama ve çeviri buralarda da çalışır.
+- Resim dosyalarını (PNG, JPG) belge gibi açma.
+- OCR sonuçları görsel/sayfa özetiyle önbelleğe alınır; aynı görsel iki kez taranmaz.
+- Yedek: zor görseller için isteğe bağlı "Yapay zekâ ile oku" (görsel destekli model); sonuç ayrı pencerede düz metin olarak gösterilir.
+
+**Egemen'in testi:** Resimli bir DOCX/PPTX'i metin görünümünde aç: resimlerin yazısı yerinde mi? Orijinal görünümde resimdeki bir kelimeye tıkla: doğru kelime mi seçiliyor, vurgulanıyor mu? Taranmış bir PDF ve bir telefon fotoğrafı (PNG/JPG) aç: okunuyor mu, ne kadar sürüyor? Okunamayan bir görselde "Yapay zekâ ile oku" işe yarıyor mu?
+
 ### Faz 5 — Çoktan seçmeli sınav
 
 - Soru: İngilizce cümle gösterilir, "Bu cümlenin Türkçesi hangisidir?" diye sorulur, dört şık vardır.
@@ -256,7 +268,6 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - Paragrafı daha basit İngilizceyle anlatma
 - Boşluk doldurma ve Türkçeden İngilizceye ters çeviri soruları
 - Anki'ye dışa aktarma
-- Taranmış PDF'ler için OCR
 - İngilizce dışındaki diller
 
 ## Karar günlüğü
@@ -286,3 +297,4 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Kelime: tıkla ya da en çok 6 kelimelik öbeği seç. Vurgular CSS Custom Highlight API ile (`duo-unknown`, `duo-learning`, `duo-flash`).
 - 2026-10-02: Yedek: belgeler, terimler, geçişler ve yapay zekâ önbelleği tek JSON; içe aktarma mevcut veriyi tek işlemde değiştirir. API anahtarı yedeğe girmez (testle doğrulanıyor).
 - 2026-10-02: pdf.js görüntüleyicisinde `box-sizing: content-box` zorunlu; aksi hâlde metin katmanı tuvalden büyük olur ve seçim sayfanın altına doğru kayar.
+- 2026-10-02: Egemen'in isteğiyle Faz 4c (görsellerden metin, OCR) eklendi: yerel Tesseract.js + isteğe bağlı görsel model yedeği. Python betiği tablette çalışmadığı ve kurulum gerektirdiği için elendi; API tek başına kelime konumu vermediği için temel yöntem olamaz.
