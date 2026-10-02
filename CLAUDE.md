@@ -39,7 +39,7 @@ Her fazın sonunda sırayla:
 
 - [x] Faz 0 — Kurulum, iskelet, GitHub
 - [x] Faz 1 — Ayarlar, API bağlantısı, model testi
-- [ ] Faz 2 — PDF okuyucu
+- [x] Faz 2 — PDF okuyucu
 - [ ] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
 - [ ] Faz 5 — Çoktan seçmeli sınav
@@ -248,3 +248,8 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: NVIDIA `/v1/models` anahtarsız da döner; bağlantı testi anahtarı hızlı modele küçük bir istek atarak doğrular.
 - 2026-10-02: Katalogda `meta/llama-3.3-70b-instruct` yok; `deepseek-v4-flash` yerine `deepseek-v4.1-flash` var. Model seçimi test ekranıyla yapılacak.
 - 2026-10-02: Birim testleri için vitest eklendi; `aiClient` sahte HTTP yanıtlarıyla test ediliyor (`npm test`).
+- 2026-10-02: Faz 1 testinde NVIDIA ücretsiz uçlarında yalnızca Nemotron ailesi ve `openai/gpt-oss-20b` makul sürede yanıt verdi; deepseek, gemma, kimi, glm zaman aşımına düştü, iki mistral modeli 404 döndü.
+- 2026-10-02: Veri modelinde alan adları İngilizce (`documents`: name, filePath, hash, pageCount, lastPage, addedAt, lastOpenedAt).
+- 2026-10-02: PDF, Rust `read_pdf` komutuyla ham bayt olarak okunur (fs eklentisi ve geniş dosya izni yok); görüntüleme pdf.js `PDFViewer` bileşeniyle.
+- 2026-10-02: pdfjs-dist 6 kullanılıyor: belge `loadingTask.destroy()` ile kapanır, yazı tipi/CMap/wasm dosyaları derlemede `public/pdfjs/`'e kopyalanır.
+- 2026-10-02: Taranmış PDF tespiti: ilk 5 sayfada toplam 20'den az metin karakteri.
