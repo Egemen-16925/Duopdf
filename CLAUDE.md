@@ -41,7 +41,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 1 — Ayarlar, API bağlantısı, model testi
 - [x] Faz 2 — PDF okuyucu
 - [x] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
-- [ ] Faz 3 — Kelime işaretleme
+- [x] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
 - [ ] Faz 4b — Kalemle not alma
 - [ ] Faz 5 — Çoktan seçmeli sınav
@@ -281,3 +281,8 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Sekmeler ve okuyucu sayfası gizlenince `display:none` değil `visibility:hidden` kullanılır; kaydırma konumu korunur.
 - 2026-10-02: DOM gerektiren testler jsdom ile çalışır (happy-dom'da DOMPurify düzgün çalışmıyor).
 - 2026-10-02: DOCX/PPTX için "orijinal görünüm": kurulu Microsoft Office (PowerShell + COM) belgeyi PDF'e çevirir, PDF uygulamanın önbelleğinde (`<app cache>/converted/<hash>.pdf`) tutulur. Bu, "dosyayı kopyalama" kuralının bilinçli istisnasıdır (silinebilir önbellek). Office yoksa yalnızca metin görünümü; LibreOffice desteği yok (Egemen'in kararı). Belgeler metin görünümüyle açılır.
+- 2026-10-02: Kelime eşleştirme: yerel kök bulucu (wink-lemmatizer) + modelin verdiği kök. Terim, her kelime konumu için kabul edilen kökleri tutar (`pattern`); "ran/running → run", "carried out → carry out" aynı kayda düşer. Vurgulama yapay zekâ çağırmaz.
+- 2026-10-02: Durumlar `unknown | learning | known` (arayüzde bilmiyorum / az biliyorum / biliyorum). `occurrences` cümle metnini ve görünümü (`text | original`) doğrudan saklar; `sentences` tablosu Faz 4'te gelecek.
+- 2026-10-02: Kelime: tıkla ya da en çok 6 kelimelik öbeği seç. Vurgular CSS Custom Highlight API ile (`duo-unknown`, `duo-learning`, `duo-flash`).
+- 2026-10-02: Yedek: belgeler, terimler, geçişler ve yapay zekâ önbelleği tek JSON; içe aktarma mevcut veriyi tek işlemde değiştirir. API anahtarı yedeğe girmez (testle doğrulanıyor).
+- 2026-10-02: pdf.js görüntüleyicisinde `box-sizing: content-box` zorunlu; aksi hâlde metin katmanı tuvalden büyük olur ve seçim sayfanın altına doğru kayar.
