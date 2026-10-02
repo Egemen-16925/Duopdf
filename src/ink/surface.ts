@@ -4,7 +4,7 @@ import { flatten, pointerWeight, simplify, strokeHits, type Point } from "./geom
 import { drawStroke, fitCanvas } from "./render";
 import { InkHistory, loadStrokes } from "./strokes";
 import { getInkTools, INK_SIZES, subscribeInkTools } from "./tools";
-import { TouchPanner } from "./touchPan";
+import { capture, coalesced, TouchPanner } from "./touchPan";
 
 interface SurfaceOptions {
   db: DuopdfDB;
@@ -127,7 +127,7 @@ export class InkSurface {
       }
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
-      canvas.setPointerCapture(e.pointerId);
+      capture(canvas, e.pointerId);
       drawingId = e.pointerId;
       if (e.pointerType === "pen") this.penDown = true;
       if (tool === "eraser") {
@@ -151,7 +151,7 @@ export class InkSurface {
         return;
       }
       // Hızlı hareketlerde aradaki noktalar da gelsin (kalemde akıcı çizgi).
-      for (const ev of e.getCoalescedEvents?.() ?? [e]) {
+      for (const ev of coalesced(e)) {
         const { x, y } = local(ev);
         points.push([x, y, pointerWeight(ev.pressure, ev.pointerType)]);
       }

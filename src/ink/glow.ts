@@ -3,7 +3,7 @@ import { caretFromPoint, pickAtPoint, pickFromRange, type Pick } from "../learni
 import type { TextMode } from "../learning/textMap";
 import { getPrefs } from "../settings/prefs";
 import { getInkTools, subscribeInkTools } from "./tools";
-import { TouchPanner } from "./touchPan";
+import { capture, coalesced, TouchPanner } from "./touchPan";
 
 interface GlowOptions {
   /** Kaydırılan kapsayıcı; parlak kalem bunun içinde çalışır. */
@@ -124,7 +124,7 @@ export function attachGlow(opts: GlowOptions): () => void {
     // Varsayılanı engelle: metin seçimi başlamasın, kelime tıklaması tetiklenmesin.
     e.preventDefault();
     e.stopPropagation();
-    container.setPointerCapture(e.pointerId);
+    capture(container, e.pointerId);
     pointerId = e.pointerId;
     cancelAnimationFrame(fadeFrame);
     points = [{ x: e.clientX, y: e.clientY }];
@@ -137,7 +137,7 @@ export function attachGlow(opts: GlowOptions): () => void {
       return;
     }
     if (e.pointerId !== pointerId) return;
-    for (const ev of e.getCoalescedEvents?.() ?? [e]) points.push({ x: ev.clientX, y: ev.clientY });
+    for (const ev of coalesced(e)) points.push({ x: ev.clientX, y: ev.clientY });
     paint(1);
   };
 

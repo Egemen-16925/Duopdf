@@ -48,3 +48,18 @@ export class TouchPanner {
     return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0;
   }
 }
+
+/** İşaretçiyi öğeye bağlar (öğenin dışına taşan çizgi de gelsin); işaretçi artık yoksa sessizce geçer. */
+export function capture(el: Element, pointerId: number) {
+  try {
+    el.setPointerCapture(pointerId);
+  } catch {
+    // işaretçi bu arada kalktıysa yakalama gerekmez
+  }
+}
+
+/** Hızlı hareketlerde aradaki noktalar (tarayıcı desteklemiyorsa ya da boş dönerse olayın kendisi). */
+export function coalesced(e: PointerEvent): PointerEvent[] {
+  const events = e.getCoalescedEvents?.();
+  return events && events.length > 0 ? events : [e];
+}

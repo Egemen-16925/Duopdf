@@ -3,6 +3,8 @@ import { db } from "../db/db";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
+import { InkToolbar } from "../ink/InkToolbar";
+import { readingToolActive, useInk } from "../ink/useInk";
 import { imageKey, ocrWithCache } from "../ocr/cache";
 import { prepareImage, recognizeImage } from "../ocr/engine";
 import { renderOcrLayer } from "../ocr/layer";
@@ -15,6 +17,8 @@ interface Props {
   jump?: Jump;
   /** "Yapay zekâ ile oku" düğmesine basılınca. */
   onAiRead?(): void;
+  /** Verilirse resme çizilebilir (çizimler bu belgeye bağlı saklanır). */
+  docHash?: string;
 }
 
 export type OcrStatus = { state: "reading" } | { state: "done"; words: number } | { state: "error"; message: string };
@@ -27,7 +31,7 @@ export function ocrStatusText(status: OcrStatus): string {
 
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 
-export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
+export function ImageViewer({ image, onPick, jump, onAiRead, docHash }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const onPickRef = useRef(onPick);
@@ -35,6 +39,21 @@ export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
   const [zoom, setZoom] = useState<"fit" | number>("fit");
   const [available, setAvailable] = useState(800);
   const [status, setStatus] = useState<OcrStatus>({ state: "reading" });
+  const pageRef = useRef<HTMLDivElement>(null);
+
+  const ink = useInk({
+    containerRef: scrollRef,
+    docHash,
+    view: "text",
+    rootSelector: ".textLayer",
+    mode: "pdf",
+    onGlowPick: (pick) => onPickRef.current?.(pick, 1),
+  });
+  const inkRef = useRef(ink);
+  inkRef.current = ink;
+  useEffect(() => {
+    if (ink.surface && pageRef.current) ink.surface.attach(1, pageRef.current);
+  }, [ink.surface]);
 
   // Görüntüleme alanının genişliği ("sığdır" için).
   useLayoutEffect(() => {
@@ -99,7 +118,7 @@ export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
   useEffect(() => {
     const el = scrollRef.current!;
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !readingToolActive(!!inkRef.current.surface)) return;
       const result = pickFromPointer(e, ".textLayer", "pdf");
       if (result) onPickRef.current?.(result.pick, 1);
     };
@@ -160,9 +179,11 @@ export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
             Yapay zekâ ile oku
           </button>
         )}
+        <span className="toolbar-sep" />
+        <InkToolbar ink={ink} />
       </div>
       <div ref={scrollRef} className="image-scroll">
-        <div className="image-page" style={pageStyle}>
+        <div ref={pageRef} className="image-page" style={pageStyle}>
           <img src={image.url} alt="" draggable={false} />
           <div ref={layerRef} className="textLayer ocr-layer" />
         </div>

@@ -1190,6 +1190,71 @@ pre {
 
 /* Dokunmatik ekranda iki parmakla sıkıştırmayı uygulama işler; tek parmak kaydırır. */
 .image-scroll,
-.reflow-scroll {
+.reflow-scroll,
+.viewer-container {
   touch-action: pan-x pan-y;
+}
+
+/* Kalemle not alma */
+.reader-toolbar {
+  flex-wrap: wrap;
+}
+
+.ink-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ink-swatch {
+  width: 20px;
+  height: 20px;
+  min-width: 0;
+  padding: 0 !important;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.ink-swatch.active {
+  border-color: var(--surface);
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+/* Çizimler sayfanın üstünde; yalnızca kalem/silgi seçiliyken dokunma alır. */
+.ink-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ink-layer.drawing {
+  pointer-events: auto;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.ink-layer.erasing {
+  cursor: cell;
+}
+
+/* Fosforlu kalem: kalemle metnin üstünden geçince sayfa kaymasın (parmak yine kaydırır). */
+.glow-mode {
+  touch-action: none;
+  cursor: text;
+}
+
+.glow-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+  /* Metin izin altında okunur kalsın (fosforlu kalem gibi). */
+  mix-blend-mode: multiply;
 }

@@ -7,8 +7,11 @@ import { useEffect, useRef, useState } from "react";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
+import { InkToolbar } from "../ink/InkToolbar";
+import { readingToolActive, useInk } from "../ink/useInk";
+import type { StrokeRecord } from "../db/db";
 import { PdfPageOcr } from "../ocr/pdfPages";
-import { wheelZoomFactor, ZoomAccumulator } from "./zoomGesture";
+import { attachPinch, wheelZoomFactor, ZoomAccumulator } from "./zoomGesture";
 
 interface Props {
   pdf: PDFDocumentProxy;
@@ -21,6 +24,9 @@ interface Props {
   ocrKey?: string;
   /** "Sayfayı yapay zekâ ile oku" düğmesine basılınca (geçerli sayfa). */
   onAiRead?(page: number): void;
+  /** Verilirse sayfalara çizilebilir: çizimler bu belgeye ve görünüme bağlı saklanır. */
+  docHash?: string;
+  inkView?: StrokeRecord["view"];
 }
 
 const ZOOM_PRESETS: { value: string; label: string }[] = [
@@ -33,7 +39,7 @@ const ZOOM_PRESETS: { value: string; label: string }[] = [
   { value: "2", label: "%200" },
 ];
 
-export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, onAiRead }: Props) {
+export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, onAiRead, docHash, inkView }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pdfViewer = useRef<PDFViewer | null>(null);
@@ -50,6 +56,27 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
   const [scale, setScale] = useState(1);
   const [scaleValue, setScaleValue] = useState("page-width");
   const [ocrPending, setOcrPending] = useState(0);
+
+  const ink = useInk({
+    containerRef,
+    docHash,
+    view: inkView,
+    rootSelector: ".textLayer",
+    mode: "pdf",
+    onGlowPick: (pick, root) => {
+      const page = Number(root.closest<HTMLElement>(".page")?.dataset.pageNumber);
+      if (page) onPickRef.current?.(pick, page);
+    },
+  });
+  const inkRef = useRef(ink);
+  inkRef.current = ink;
+  // Çizim yüzeyi sayfalar çizildikten sonra hazır olduysa, çizilmiş sayfalara hemen takılsın.
+  useEffect(() => {
+    containerRef.current?.querySelectorAll<HTMLElement>(".page[data-loaded]").forEach((pageDiv) => {
+      const n = Number(pageDiv.dataset.pageNumber);
+      if (n) ink.surface?.attach(n, pageDiv);
+    });
+  }, [ink.surface]);
 
   useEffect(() => {
     const container = containerRef.current!;
@@ -72,9 +99,15 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     };
     // Görsellerdeki yazılar (taranmış sayfalar, şekiller) OCR ile okunur ve ayrı bir katman olarak eklenir.
     const ocr = ocrKey ? new PdfPageOcr(pdf, ocrKey, setOcrPending) : null;
+    // Çizim tuvali sayfa öğesine takılır; pdf.js sayfayı yeniden kurunca yeniden takılır.
+    const attachInk = (pageNumber: number, pageDiv: HTMLElement | null | undefined) => {
+      if (pageDiv) inkRef.current.surface?.attach(pageNumber, pageDiv);
+    };
+    eventBus.on("pagerendered", (evt: { pageNumber: number; source: { div: HTMLElement } }) => attachInk(evt.pageNumber, evt.source.div));
     eventBus.on("textlayerrendered", (evt: { pageNumber: number; source: { textLayer?: { div: HTMLElement } } }) => {
       const div = evt.source.textLayer?.div;
       if (!div) return;
+      attachInk(evt.pageNumber, div.closest<HTMLElement>(".page"));
       textLayers.add(div);
       trackRoot(div, "pdf");
       tryPendingJump(evt.pageNumber, div);
@@ -106,12 +139,17 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     // Ctrl + tekerlek ve touchpad'de iki parmakla sıkıştırma: imlecin olduğu yere göre, yumuşak.
     // (Dokunmatik ekranda sıkıştırmayı pdf.js kendisi yapar.)
     const zoomAcc = new ZoomAccumulator();
+    const zoomBy = (factor: number, x: number, y: number) => {
+      const apply = zoomAcc.add(factor, viewer.currentScale);
+      if (apply) viewer.updateScale({ scaleFactor: apply, origin: [x, y], drawingDelay: 400 });
+    };
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      const factor = zoomAcc.add(wheelZoomFactor(e), viewer.currentScale);
-      if (factor) viewer.updateScale({ scaleFactor: factor, origin: [e.clientX, e.clientY], drawingDelay: 400 });
+      zoomBy(wheelZoomFactor(e), e.clientX, e.clientY);
     };
+    // Dokunmatik ekranda iki parmakla sıkıştırma (kalem modunda da).
+    const detachPinch = attachPinch(container, zoomBy);
     // PDF içindeki dış bağlantılar uygulamanın içinde açılmasın, tarayıcıda açılsın.
     const onClick = (e: MouseEvent) => {
       const link = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
@@ -123,6 +161,7 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     // Kelimeye tıklama / öbek seçme
     const onMouseUp = (e: MouseEvent) => {
       if (e.button !== 0 || (e.target as HTMLElement).closest("a, button")) return;
+      if (!readingToolActive(!!inkRef.current.surface)) return;
       const result = pickFromPointer(e, ".textLayer", "pdf");
       const page = Number(result?.root.closest<HTMLElement>(".page")?.dataset.pageNumber);
       if (result && page) onPickRef.current?.(result.pick, page);
@@ -139,6 +178,7 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
 
     return () => {
       resizeObserver.disconnect();
+      detachPinch();
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
       container.removeEventListener("mouseup", onMouseUp);
@@ -232,6 +272,8 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
             </button>
           </>
         )}
+        <span className="toolbar-sep" />
+        <InkToolbar ink={ink} />
       </div>
       <div className="viewer-wrap">
         <div ref={containerRef} className="viewer-container">

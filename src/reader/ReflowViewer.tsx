@@ -4,6 +4,8 @@ import type { ReflowDoc } from "../formats/types";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
+import { InkToolbar } from "../ink/InkToolbar";
+import { readingToolActive, useInk } from "../ink/useInk";
 import { replaceImagesWithText } from "../ocr/reflowImages";
 import { attachPinch, wheelZoomFactor } from "./zoomGesture";
 import { locate, scrollTopFor, type SectionBox } from "./position";
@@ -48,6 +50,17 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
 
   const [section, setSection] = useState(position.current.index);
   const [fontSize, setFontSize] = useState(loadFontSize);
+
+  // Akan metinde kalıcı çizim yok (sayfa düzeni sabit değil); yalnızca geçici fosforlu kalem.
+  const ink = useInk({
+    containerRef: scrollRef,
+    rootSelector: ".reflow-section",
+    mode: "flow",
+    onGlowPick: (pick, root) => {
+      const index = sectionRefs.current.indexOf(root as HTMLElement);
+      if (index >= 0) onPickRef.current?.(pick, index + 1);
+    },
+  });
 
   const boxes = (): SectionBox[] =>
     sectionRefs.current.map((el) => ({ top: el?.offsetTop ?? 0, height: el?.offsetHeight ?? 0 }));
@@ -128,6 +141,7 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
     };
     const onMouseUp = (e: MouseEvent) => {
       if (e.button !== 0 || (e.target as HTMLElement).closest("a, button")) return;
+      if (!readingToolActive(false)) return;
       const result = pickFromPointer(e, ".reflow-section", "flow");
       if (!result) return;
       const index = sectionRefs.current.indexOf(result.root as HTMLElement);
@@ -223,6 +237,8 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
         >
           A+
         </button>
+        <span className="toolbar-sep" />
+        <InkToolbar ink={ink} />
       </div>
       <div ref={scrollRef} className="reflow-scroll">
         <article className="reflow-content" style={{ fontSize }}>

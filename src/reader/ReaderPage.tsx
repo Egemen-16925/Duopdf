@@ -438,6 +438,8 @@ export function ReaderPage({ ai, ref }: Props) {
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                       onAiRead={(page) => t.content.kind === "pdf" && readPdfPage(t, "text", t.content.pdf, page)}
+                      docHash={t.record.hash}
+                      inkView="text"
                     />
                   ) : t.content.kind === "image" ? (
                     <ImageViewer
@@ -445,6 +447,7 @@ export function ReaderPage({ ai, ref }: Props) {
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                       onAiRead={() => t.content.kind === "image" && readImageBlob(t, t.content.image.blob)}
+                      docHash={t.record.hash}
                     />
                   ) : (
                     <ReflowViewer
@@ -470,6 +473,8 @@ export function ReaderPage({ ai, ref }: Props) {
                       onPick={(pick, page) => handlePick(t, "original", pick, page)}
                       jump={t.jump?.view === "original" ? t.jump : undefined}
                       onAiRead={(page) => t.original && readPdfPage(t, "original", t.original, page)}
+                      docHash={t.record.hash}
+                      inkView="original"
                     />
                     </ErrorBoundary>
                   </div>
