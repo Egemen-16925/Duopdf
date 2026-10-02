@@ -42,7 +42,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 2 — PDF okuyucu
 - [x] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
 - [x] Faz 3 — Kelime işaretleme
-- [ ] Faz 4 — Cümle çevirisi
+- [x] Faz 4 — Cümle çevirisi
 - [ ] Faz 4b — Kalemle not alma
 - [ ] Faz 4c — Görsellerden metin (OCR)
 - [ ] Faz 5 — Çoktan seçmeli sınav
@@ -318,3 +318,6 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Egemen'in isteğiyle Faz 4c (görsellerden metin, OCR) eklendi: yerel Tesseract.js + isteğe bağlı görsel model yedeği. Python betiği tablette çalışmadığı ve kurulum gerektirdiği için elendi; API tek başına kelime konumu vermediği için temel yöntem olamaz.
 - 2026-10-02: Faz 3 Egemen tarafından test edildi (AI anlamı, tıklama, durum kaydı, yedek dışa/içe aktarma çalışıyor).
 - 2026-10-02: Egemen'in isteğiyle Faz 7b (Google Drive ile otomatik eşitleme) eklendi. VPS/kendi sunucusu "sunucu yok" ilkesine ters olduğu için elendi. Yeni tablolar baştan `updatedAt` + silme izi ile tasarlanacak.
+- 2026-10-02: Cümle bölme: Intl.Segmenter + kısaltma düzeltmesi (e.g., Dr., Fig., tek harfli baş harfler). PDF'te punto %20'den fazla değişince (başlık → gövde) paragraf sonu sayılır. Sayfalar arası bölünen cümleler şimdilik iki parça kalır.
+- 2026-10-02: Çeviriler `sentences` tablosunda (anahtar: temizlenmiş cümlenin SHA-256'sı) kalıcı tutulur; ayrı önbellek yok, internetsiz de görünür, "Yeniden çevir" üzerine yazar. Silmeler `tombstones` tablosuna iz bırakır (eşitleme hazırlığı). Yedek bu iki tabloyu da içerir; eski yedekler açılmaya devam eder.
+- 2026-10-02: Cümle çevirisine erişim: 6 kelimeden uzun ya da cümle sınırını aşan seçim, Alt + tıklama, kelime penceresindeki "Cümleyi çevir". Çevrilen cümle sayfada `duo-sentence` vurgusuyla gösterilir.

@@ -12,7 +12,7 @@ Kendi ders PDF'lerini açarsın, bilmediğin terimleri işaretlersin, cümleleri
 - EPUB, DOCX, PPTX ve TXT dosyalarını metin görünümünde açma; belgeler sekmelerde
 - Kelime işaretleme: cümle içindeki anlam, kök hâli, "bilmiyorum / az biliyorum / biliyorum"
 - Kelime listesi, tüm belgelerde renkli vurgulama, öğrenme verisini JSON olarak yedekleme
-- Cümle çevirisi ve kısa dilbilgisi notu
+- Cümle çevirisi ve kısa dilbilgisi notu (çeviriler kaydedilir, internetsiz de görünür)
 - Çoktan seçmeli ve açık uçlu çeviri sınavları, aralıklı tekrar
 - Şimdilik yalnızca İngilizce → Türkçe
 
