@@ -21,10 +21,10 @@ export const TEST_TASKS: TestTask[] = [
     description: '"addresses" — This patch addresses a race condition in the scheduler.',
     run: (profile, model) =>
       runPrompt(
-        profile,
+        { profile, model },
         wordMeaningPrompt,
         { word: "addresses", sentence: "This patch addresses a race condition in the scheduler." },
-        { model, retries: 0 },
+        { retries: 0 },
       ),
   },
   {
@@ -34,13 +34,13 @@ export const TEST_TASKS: TestTask[] = [
       "Although the garbage collector frees unused memory automatically, developers should still avoid holding references to large objects longer than necessary.",
     run: (profile, model) =>
       runPrompt(
-        profile,
+        { profile, model },
         translateSentencePrompt,
         {
           sentence:
             "Although the garbage collector frees unused memory automatically, developers should still avoid holding references to large objects longer than necessary.",
         },
-        { model, retries: 0 },
+        { retries: 0 },
       ),
   },
   {
@@ -50,14 +50,14 @@ export const TEST_TASKS: TestTask[] = [
       'The server rejects requests that exceed the rate limit. → (bilerek hatalı) "Sunucu, hız sınırını aşan istekleri kabul eder."',
     run: (profile, model) =>
       runPrompt(
-        profile,
+        { profile, model },
         evaluateTranslationPrompt,
         {
           sentence: "The server rejects requests that exceed the rate limit.",
           userTranslation: "Sunucu, hız sınırını aşan istekleri kabul eder.",
           targetLemmas: ["reject", "exceed"],
         },
-        { model, retries: 0 },
+        { retries: 0 },
       ),
   },
 ];

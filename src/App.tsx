@@ -6,7 +6,7 @@ import { ModelTestPage } from "./pages/ModelTestPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
-import { activeProfile, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
+import { allTargets, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
 type Page = "reader" | "words" | "settings" | "modelTest";
 
@@ -16,6 +16,8 @@ const NAV: { id: Page; label: string }[] = [
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
+
+const NO_AI = { fast: null, strong: null, vision: null };
 
 function App() {
   const [page, setPage] = useState<Page>("reader");
@@ -63,7 +65,7 @@ function App() {
       <div className="page-stack">
         {/* Okuyucu sayfa değişince kapanmasın ve kaydırma konumu kaybolmasın diye yerinde kalır, yalnızca görünmez olur. */}
         <div className={page === "reader" ? "page-layer" : "page-layer inactive"}>
-          <ReaderPage ref={readerRef} profile={settings ? activeProfile(settings) : null} />
+          <ReaderPage ref={readerRef} ai={settings ? allTargets(settings) : NO_AI} />
         </div>
         {page !== "reader" && (
           <main className="content page-layer">

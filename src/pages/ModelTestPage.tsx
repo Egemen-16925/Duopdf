@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { listModels } from "../ai/aiClient";
 import { formatResults, runTask, TEST_TASKS, type TaskResult } from "../ai/modelTest";
-import { activeProfile, type ProviderSettings } from "../settings/providers";
+import { ROLE_LABELS, type ModelRole, type ProviderSettings } from "../settings/providers";
+import { ModelInput } from "./ModelInput";
 
 interface Props {
   settings: ProviderSettings;
@@ -10,10 +11,21 @@ interface Props {
   onModelList(profileId: string, models: string[]): void;
 }
 
+const ROLE_SHORT: Record<ModelRole, string> = { fast: "Hızlı", strong: "Güçlü", vision: "Görsel" };
+
 export function ModelTestPage({ settings, onChange, modelLists, onModelList }: Props) {
-  const profile = activeProfile(settings);
+  /** Hangi sağlayıcının modelleri deneniyor. */
+  const [profileId, setProfileId] = useState(settings.roles.fast.profileId);
+  const profile = settings.profiles.find((p) => p.id === profileId) ?? settings.profiles[0];
   const [models, setModels] = useState<string[]>(() =>
-    [...new Set([profile.fastModel, profile.strongModel].filter((m) => m.trim()))],
+    [
+      ...new Set(
+        (Object.keys(ROLE_LABELS) as ModelRole[])
+          .filter((r) => r !== "vision" && settings.roles[r].profileId === profileId)
+          .map((r) => settings.roles[r].model)
+          .filter((m) => m.trim()),
+      ),
+    ],
   );
   const [input, setInput] = useState("");
   const [results, setResults] = useState<TaskResult[]>([]);
@@ -33,6 +45,7 @@ export function ModelTestPage({ settings, onChange, modelLists, onModelList }: P
   }
 
   async function fetchModels() {
+    if (modelLists[profile.id]) return;
     try {
       onModelList(profile.id, await listModels(profile));
       setNotice(null);
@@ -50,7 +63,7 @@ export function ModelTestPage({ settings, onChange, modelLists, onModelList }: P
 
   async function start() {
     if (!profile.apiKey.trim()) {
-      setNotice("Etkin profilde API anahtarı yok. Önce Ayarlar'dan anahtarı gir ve kaydet.");
+      setNotice(`"${profile.name}" sağlayıcısının API anahtarı yok. Önce Ayarlar'dan anahtarı gir ve kaydet.`);
       return;
     }
     setRunning(true);
@@ -78,40 +91,51 @@ export function ModelTestPage({ settings, onChange, modelLists, onModelList }: P
     }
   }
 
-  async function assign(model: string, role: "fastModel" | "strongModel") {
-    await onChange({
-      ...settings,
-      profiles: settings.profiles.map((p) => (p.id === profile.id ? { ...p, [role]: model } : p)),
-    });
-    setNotice(`"${model}" ${role === "fastModel" ? "hızlı" : "güçlü"} model olarak kaydedildi.`);
+  async function assign(model: string, role: ModelRole) {
+    await onChange({ ...settings, roles: { ...settings.roles, [role]: { profileId: profile.id, model } } });
+    setNotice(`"${model}" (${profile.name}) ${ROLE_LABELS[role].toLocaleLowerCase("tr")} olarak kaydedildi.`);
   }
+
+  const isAssigned = (model: string, role: ModelRole) =>
+    settings.roles[role].profileId === profile.id && settings.roles[role].model === model;
 
   return (
     <div className="model-test">
       <h2>Model testi</h2>
       <p className="muted">
-        Etkin profil: <strong>{profile.name}</strong>. Her model aynı üç görevi yapar; sonuçları yan yana karşılaştır.
-        429 hataları yeniden denenmeden gösterilir.
+        Her model aynı üç görevi yapar; sonuçları yan yana karşılaştır. 429 hataları yeniden denenmeden gösterilir.
       </p>
 
       <div className="row">
-        <input
-          list="test-model-options"
+        <label className="inline-label">
+          Sağlayıcı
+          <select
+            value={profile.id}
+            disabled={running}
+            onChange={(e) => {
+              setProfileId(e.target.value);
+              setModels([]);
+              setResults([]);
+            }}
+          >
+            {settings.profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <ModelInput
           value={input}
+          options={available}
           placeholder="Model kimliği yaz veya listeden seç"
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addModel()}
+          ariaLabel="Denenecek model"
+          onOpen={fetchModels}
+          onChange={setInput}
+          onEnter={addModel}
         />
-        <datalist id="test-model-options">
-          {available.map((m) => (
-            <option key={m} value={m} />
-          ))}
-        </datalist>
         <button className="secondary" onClick={addModel} disabled={!input.trim()}>
           Ekle
-        </button>
-        <button className="secondary" onClick={fetchModels}>
-          Modelleri getir{available.length ? ` (${available.length})` : ""}
         </button>
       </div>
 
@@ -147,12 +171,11 @@ export function ModelTestPage({ settings, onChange, modelLists, onModelList }: P
                   <th key={m}>
                     <div className="model-name">{m}</div>
                     <div className="row small">
-                      <button className="secondary" disabled={running} onClick={() => assign(m, "fastModel")}>
-                        {profile.fastModel === m ? "✓ Hızlı" : "Hızlı yap"}
-                      </button>
-                      <button className="secondary" disabled={running} onClick={() => assign(m, "strongModel")}>
-                        {profile.strongModel === m ? "✓ Güçlü" : "Güçlü yap"}
-                      </button>
+                      {(Object.keys(ROLE_SHORT) as ModelRole[]).map((role) => (
+                        <button key={role} className="secondary" disabled={running} onClick={() => assign(m, role)}>
+                          {isAssigned(m, role) ? `✓ ${ROLE_SHORT[role]}` : `${ROLE_SHORT[role]} yap`}
+                        </button>
+                      ))}
                     </div>
                   </th>
                 ))}

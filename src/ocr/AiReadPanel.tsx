@@ -5,7 +5,7 @@ import { db } from "../db/db";
 import { cached } from "../learning/cache";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { pickFromPointer, type Pick } from "../learning/pick";
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTarget } from "../settings/providers";
 
 export interface AiReadRequest {
   title: string;
@@ -17,7 +17,8 @@ export interface AiReadRequest {
 
 interface Props {
   request: AiReadRequest;
-  profile: ProviderProfile | null;
+  /** Görsel model. */
+  target: AiTarget | null;
   onPick(pick: Pick): void;
   onClose(): void;
 }
@@ -28,14 +29,14 @@ type State =
   | { state: "error"; message: string }
   | { state: "noModel" };
 
-export function AiReadPanel({ request, profile, onPick, onClose }: Props) {
+export function AiReadPanel({ request, target, onPick, onClose }: Props) {
   const [result, setResult] = useState<State>({ state: "loading" });
   const textRef = useRef<HTMLDivElement>(null);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
   async function run(force = false) {
-    if (!profile?.apiKey.trim() || !profile.visionModel?.trim()) {
+    if (!target) {
       setResult({ state: "noModel" });
       return;
     }
@@ -46,7 +47,7 @@ export function AiReadPanel({ request, profile, onPick, onClose }: Props) {
         db,
         readImagePrompt,
         { image: key },
-        async () => readImageWithAi(profile, await request.image()),
+        async () => readImageWithAi(target, await request.image()),
         { force },
       );
       setResult({ state: "done", text: value, fromCache });
@@ -91,7 +92,7 @@ export function AiReadPanel({ request, profile, onPick, onClose }: Props) {
       <div className="ai-read-body">
         {result.state === "loading" && <p className="muted">Görsel modele gönderildi, okunuyor…</p>}
         {result.state === "noModel" && (
-          <p className="msg info">Bunun için Ayarlar'da API anahtarı ve "Görsel model" seç (ör. meta/llama-3.2-90b-vision-instruct).</p>
+          <p className="msg info">Bunun için Ayarlar'da "Görsel model" için sağlayıcı ve model seç (ör. meta/llama-3.2-90b-vision-instruct).</p>
         )}
         {result.state === "error" && <p className="msg error">{result.message}</p>}
         {result.state === "done" && lines.length === 0 && <p className="muted">Model görselde yazı bulamadı.</p>}

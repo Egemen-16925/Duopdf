@@ -1101,3 +1101,79 @@ pre {
   background: var(--surface);
   font-size: 0.9em;
 }
+
+/* Model seçme kutusu (sayfayla birlikte kayan öneri listesi) */
+
+.model-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.model-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  font-weight: 400;
+}
+
+.model-options li {
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: Consolas, monospace;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.model-options li.active {
+  background: var(--info-bg);
+}
+
+.model-options li.selected {
+  font-weight: 700;
+}
+
+/* Ayarlar: rol satırları */
+
+.role-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.role-label {
+  font-weight: 600;
+}
+
+.role-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.role-fields select {
+  width: auto;
+  max-width: 40%;
+}
+
+.inline-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.inline-label select {
+  width: auto;
+}

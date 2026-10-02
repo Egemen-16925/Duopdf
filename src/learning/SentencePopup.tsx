@@ -3,7 +3,7 @@ import { generate } from "../ai/aiClient";
 import { AiError } from "../ai/errors";
 import { translateSentencePrompt } from "../ai/prompts/translateSentence";
 import { db, type SentenceRecord } from "../db/db";
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTarget } from "../settings/providers";
 import { setSentenceHighlight } from "./highlights";
 import { MAX_SENTENCE_CHARS, type SentencePick } from "./pick";
 import { useDismiss, usePopupPlacement } from "./popup";
@@ -12,7 +12,8 @@ import { getSentence, translateSentence } from "./sentences";
 interface Props {
   pick: SentencePick;
   source: { documentHash: string; page: number };
-  profile: ProviderProfile | null;
+  /** Hızlı model (yoksa yalnızca kayıtlı çeviriler gösterilir). */
+  target: AiTarget | null;
   onClose(): void;
 }
 
@@ -24,11 +25,11 @@ type State =
 
 const WIDTH = 440;
 
-export function SentencePopup({ pick, source, profile, onClose }: Props) {
+export function SentencePopup({ pick, source, target, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [result, setResult] = useState<State>({ state: "loading" });
   const [copied, setCopied] = useState(false);
-  const canAsk = Boolean(profile?.apiKey.trim() && profile.fastModel.trim());
+  const canAsk = target != null;
   const tooLong = pick.text.length > MAX_SENTENCE_CHARS;
 
   async function run(force = false) {
@@ -39,12 +40,12 @@ export function SentencePopup({ pick, source, profile, onClose }: Props) {
       setResult({ state: "done", record: saved, fromCache: true });
       return;
     }
-    if (!profile || !canAsk) {
+    if (!target) {
       setResult({ state: "missing" });
       return;
     }
     try {
-      const out = await translateSentence(db, pick.text, (s) => generate(profile, translateSentencePrompt, { sentence: s }), {
+      const out = await translateSentence(db, pick.text, (s) => generate(target, translateSentencePrompt, { sentence: s }), {
         force,
         source,
       });
@@ -110,7 +111,7 @@ export function SentencePopup({ pick, source, profile, onClose }: Props) {
           </p>
         )}
         {result.state === "missing" && (
-          <p className="muted">Bu cümle henüz çevrilmedi. Çeviri için Ayarlar'dan API anahtarı ve hızlı model seç.</p>
+          <p className="muted">Bu cümle henüz çevrilmedi. Çeviri için Ayarlar'da hızlı model için sağlayıcı ve model seç.</p>
         )}
       </div>
 

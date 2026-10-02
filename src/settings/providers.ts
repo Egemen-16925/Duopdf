@@ -1,43 +1,123 @@
 import { load, type Store } from "@tauri-apps/plugin-store";
 
 /**
- * Sağlayıcı profilleri öğrenme verisinden ayrı bir dosyada durur (providers.json).
+ * Sağlayıcı ayarları öğrenme verisinden ayrı bir dosyada durur (providers.json).
  * Anahtar, sağlayıcı veya model değişince öğrenme verisine dokunulmaz.
+ *
+ * Sağlayıcı = adres + anahtar. Her model rolü (hızlı, güçlü, görsel) kendi sağlayıcısını
+ * ve modelini ayrı seçer; böylece roller farklı API'lerden çalışabilir.
  */
 export interface ProviderProfile {
   id: string;
   name: string;
   baseUrl: string;
   apiKey: string;
-  fastModel: string;
-  strongModel: string;
-  /** İsteğe bağlı: resimdeki yazıyı okuyabilen (görsel destekli) model. */
-  visionModel: string;
+}
+
+export type ModelRole = "fast" | "strong" | "vision";
+
+export const ROLE_LABELS: Record<ModelRole, string> = {
+  fast: "Hızlı model",
+  strong: "Güçlü model",
+  vision: "Görsel model",
+};
+
+export interface RoleAssignment {
+  profileId: string;
+  model: string;
 }
 
 export interface ProviderSettings {
   profiles: ProviderProfile[];
-  activeProfileId: string;
+  roles: Record<ModelRole, RoleAssignment>;
 }
+
+/** Bir isteğin gideceği yer: sağlayıcı + model. */
+export interface AiTarget {
+  profile: ProviderProfile;
+  model: string;
+}
+
+/** Her rol için kullanılabilir hedef (sağlayıcı yoksa, anahtar ya da model boşsa null). */
+export type AiTargets = Record<ModelRole, AiTarget | null>;
 
 export const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export function newProfile(partial: Partial<ProviderProfile> = {}): ProviderProfile {
+  return { id: crypto.randomUUID(), name: "Yeni sağlayıcı", baseUrl: "", apiKey: "", ...partial };
+}
+
+function emptyRoles(profileId: string): Record<ModelRole, RoleAssignment> {
   return {
-    id: crypto.randomUUID(),
-    name: "Yeni profil",
-    baseUrl: "",
-    apiKey: "",
-    fastModel: "",
-    strongModel: "",
-    visionModel: "",
-    ...partial,
+    fast: { profileId, model: "" },
+    strong: { profileId, model: "" },
+    vision: { profileId, model: "" },
   };
 }
 
 export function defaultSettings(): ProviderSettings {
   const nvidia = newProfile({ name: "NVIDIA", baseUrl: NVIDIA_BASE_URL });
-  return { profiles: [nvidia], activeProfileId: nvidia.id };
+  return { profiles: [nvidia], roles: emptyRoles(nvidia.id) };
+}
+
+/** Eski biçim: profilde fastModel/strongModel/visionModel ve tek bir "etkin profil" vardı. */
+interface LegacyProfile extends ProviderProfile {
+  fastModel?: string;
+  strongModel?: string;
+  visionModel?: string;
+}
+
+/** Kayıtlı veriyi (eski ya da yeni biçim) geçerli ayarlara çevirir. */
+export function normalizeSettings(
+  storedProfiles: LegacyProfile[] | undefined | null,
+  storedRoles: Partial<Record<ModelRole, RoleAssignment>> | undefined | null,
+  legacyActiveId?: string | null,
+): ProviderSettings {
+  if (!storedProfiles || storedProfiles.length === 0) return defaultSettings();
+  const profiles = storedProfiles.map(({ id, name, baseUrl, apiKey }) => ({ id, name, baseUrl, apiKey }));
+  const ids = new Set(profiles.map((p) => p.id));
+  const fallbackId = legacyActiveId && ids.has(legacyActiveId) ? legacyActiveId : profiles[0].id;
+
+  if (!storedRoles) {
+    // Eski biçimden taşıma: etkin profilin modelleri üç role atanır.
+    const active = storedProfiles.find((p) => p.id === fallbackId)!;
+    return {
+      profiles,
+      roles: {
+        fast: { profileId: fallbackId, model: active.fastModel ?? "" },
+        strong: { profileId: fallbackId, model: active.strongModel ?? "" },
+        vision: { profileId: fallbackId, model: active.visionModel ?? "" },
+      },
+    };
+  }
+  const roles = emptyRoles(fallbackId);
+  for (const role of Object.keys(roles) as ModelRole[]) {
+    const stored = storedRoles[role];
+    if (stored) roles[role] = { profileId: ids.has(stored.profileId) ? stored.profileId : fallbackId, model: stored.model ?? "" };
+  }
+  return { profiles, roles };
+}
+
+export function targetFor(settings: ProviderSettings, role: ModelRole): AiTarget | null {
+  const { profileId, model } = settings.roles[role];
+  const profile = settings.profiles.find((p) => p.id === profileId);
+  if (!profile || !profile.apiKey.trim() || !profile.baseUrl.trim() || !model.trim()) return null;
+  return { profile, model: model.trim() };
+}
+
+export function allTargets(settings: ProviderSettings): AiTargets {
+  return { fast: targetFor(settings, "fast"), strong: targetFor(settings, "strong"), vision: targetFor(settings, "vision") };
+}
+
+/** Sağlayıcı silinince ona bağlı roller ilk sağlayıcıya döner (model boşaltılır). */
+export function removeProfile(settings: ProviderSettings, id: string): ProviderSettings {
+  const profiles = settings.profiles.filter((p) => p.id !== id);
+  if (profiles.length === 0) return settings;
+  const roles = { ...settings.roles };
+  for (const role of Object.keys(roles) as ModelRole[]) {
+    if (roles[role].profileId === id) roles[role] = { profileId: profiles[0].id, model: "" };
+  }
+  return { profiles, roles };
 }
 
 const STORE_FILE = "providers.json";
@@ -50,26 +130,19 @@ function getStore(): Promise<Store> {
 
 export async function loadProviderSettings(): Promise<ProviderSettings> {
   const store = await getStore();
-  const profiles = await store.get<ProviderProfile[]>("profiles");
-  const activeProfileId = await store.get<string>("activeProfileId");
-  if (!profiles || profiles.length === 0) {
-    const settings = defaultSettings();
-    await saveProviderSettings(settings);
-    return settings;
-  }
-  const activeExists = profiles.some((p) => p.id === activeProfileId);
-  // Sonradan eklenen alanlar eski kayıtlarda yoktur; boş değerle tamamla.
-  const complete = profiles.map((p) => ({ ...newProfile(), ...p }));
-  return { profiles: complete, activeProfileId: activeExists ? activeProfileId! : profiles[0].id };
+  const settings = normalizeSettings(
+    await store.get<LegacyProfile[]>("profiles"),
+    await store.get<Record<ModelRole, RoleAssignment>>("roles"),
+    await store.get<string>("activeProfileId"),
+  );
+  await saveProviderSettings(settings);
+  return settings;
 }
 
 export async function saveProviderSettings(settings: ProviderSettings): Promise<void> {
   const store = await getStore();
   await store.set("profiles", settings.profiles);
-  await store.set("activeProfileId", settings.activeProfileId);
+  await store.set("roles", settings.roles);
+  await store.delete("activeProfileId");
   await store.save();
-}
-
-export function activeProfile(settings: ProviderSettings): ProviderProfile {
-  return settings.profiles.find((p) => p.id === settings.activeProfileId) ?? settings.profiles[0];
 }

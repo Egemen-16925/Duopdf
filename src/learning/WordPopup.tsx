@@ -4,7 +4,7 @@ import { AiError } from "../ai/errors";
 import { wordMeaningPrompt } from "../ai/prompts/wordMeaning";
 import type { WordMeaning } from "../ai/schemas";
 import { db, type OccurrenceRecord, type TermRecord } from "../db/db";
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTarget } from "../settings/providers";
 import { cached } from "./cache";
 import { bestLocalLemma } from "./lemma";
 import type { TermStatus } from "./matcher";
@@ -18,7 +18,8 @@ export type PickLocation = Omit<OccurrenceRecord, "id" | "termId" | "createdAt" 
 interface Props {
   pick: WordPick;
   location: PickLocation;
-  profile: ProviderProfile | null;
+  /** Hızlı model (yoksa yalnızca yerel kök hâli). */
+  target: AiTarget | null;
   onClose(): void;
   /** Kelimenin geçtiği cümlenin çevirisine geç. */
   onTranslateSentence?(): void;
@@ -38,21 +39,21 @@ type AiState =
 
 const WIDTH = 340;
 
-export function WordPopup({ pick, location, profile, onClose, onTranslateSentence }: Props) {
+export function WordPopup({ pick, location, target, onClose, onTranslateSentence }: Props) {
   const terms = useTerms();
   const existing = useMemo(() => getMatcher().findExact(pick.tokens) as TermRecord | undefined, [terms, pick]);
   const [ai, setAi] = useState<AiState>({ state: "idle" });
   const [saving, setSaving] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const canAsk = Boolean(profile?.apiKey.trim() && profile.fastModel.trim());
+  const canAsk = target != null;
   const input = { word: pick.surface, sentence: pick.sentence };
 
   async function ask(force = false) {
-    if (!profile || !canAsk) return;
+    if (!target) return;
     setAi({ state: "loading" });
     try {
-      const { value, fromCache } = await cached(db, wordMeaningPrompt, input, () => generate(profile, wordMeaningPrompt, input), {
+      const { value, fromCache } = await cached(db, wordMeaningPrompt, input, () => generate(target, wordMeaningPrompt, input), {
         force,
       });
       setAi({ state: "done", data: value, fromCache });
@@ -122,7 +123,7 @@ export function WordPopup({ pick, location, profile, onClose, onTranslateSentenc
           </p>
         )}
         {!canAsk && (
-          <p className="muted">Anlam için Ayarlar'dan API anahtarı ve hızlı model seç. Kelimeyi yine de işaretleyebilirsin.</p>
+          <p className="muted">Anlam için Ayarlar'da hızlı model için sağlayıcı ve model seç. Kelimeyi yine de işaretleyebilirsin.</p>
         )}
       </div>
 

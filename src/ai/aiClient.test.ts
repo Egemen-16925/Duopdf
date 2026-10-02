@@ -14,10 +14,9 @@ const profile: ProviderProfile = {
   name: "Test",
   baseUrl: "https://example.test/v1/",
   apiKey: "test-key",
-  fastModel: "fast/model",
-  strongModel: "strong/model",
-  visionModel: "vision/model",
 };
+
+const fast = { profile, model: "fast/model" };
 
 function response(status: number, body: unknown, headers: Record<string, string> = {}) {
   return {
@@ -122,9 +121,9 @@ describe("chat", () => {
 describe("runPrompt / generate", () => {
   const valid = '{"ceviri": "Çeviri", "dilbilgisiNotu": "Not"}';
 
-  it("uses the fast model for a fast template and validates the result", async () => {
+  it("sends the request to the target's model and validates the result", async () => {
     fetchMock.mockResolvedValueOnce(completion(valid));
-    const run = await runPrompt(profile, translateSentencePrompt, { sentence: "Hi." });
+    const run = await runPrompt(fast, translateSentencePrompt, { sentence: "Hi." });
     expect(sentBody(0).model).toBe("fast/model");
     expect(run.data).toEqual({ ceviri: "Çeviri", dilbilgisiNotu: "Not" });
     expect(run.validationError).toBeUndefined();
@@ -132,7 +131,7 @@ describe("runPrompt / generate", () => {
 
   it("reports invalid JSON without retrying when repair is off", async () => {
     fetchMock.mockResolvedValueOnce(completion('{"translation": "x"}'));
-    const run = await runPrompt(profile, translateSentencePrompt, { sentence: "Hi." });
+    const run = await runPrompt(fast, translateSentencePrompt, { sentence: "Hi." });
     expect(run.data).toBeUndefined();
     expect(run.validationError).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -141,7 +140,7 @@ describe("runPrompt / generate", () => {
   it("shows the error to the model once when repair is on", async () => {
     fetchMock.mockResolvedValueOnce(completion("not json"));
     fetchMock.mockResolvedValueOnce(completion(valid));
-    const data = await generate(profile, translateSentencePrompt, { sentence: "Hi." });
+    const data = await generate(fast, translateSentencePrompt, { sentence: "Hi." });
     expect(data.ceviri).toBe("Çeviri");
     const repairMessages = sentBody(1).messages;
     expect(repairMessages.at(-2)).toEqual({ role: "assistant", content: "not json" });
@@ -150,23 +149,23 @@ describe("runPrompt / generate", () => {
 
   it("gives up with a clear error after one failed repair", async () => {
     fetchMock.mockResolvedValue(completion("still not json"));
-    await expect(generate(profile, translateSentencePrompt, { sentence: "Hi." })).rejects.toMatchObject({
+    await expect(generate(fast, translateSentencePrompt, { sentence: "Hi." })).rejects.toMatchObject({
       kind: "badResponse",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("fails early when the role model is not configured", async () => {
-    await expect(
-      runPrompt({ ...profile, fastModel: "" }, translateSentencePrompt, { sentence: "Hi." }),
-    ).rejects.toMatchObject({ kind: "config" });
+  it("fails early when the target has no model", async () => {
+    await expect(runPrompt({ profile, model: " " }, translateSentencePrompt, { sentence: "Hi." })).rejects.toMatchObject({
+      kind: "config",
+    });
   });
 });
 
 describe("readImageWithAi", () => {
   it("sends the image as an OpenAI image_url part to the vision model", async () => {
     fetchMock.mockResolvedValueOnce(completion("Figure 1: Git workflow\nWorking directory"));
-    const text = await readImageWithAi(profile, "data:image/jpeg;base64,AAAA");
+    const text = await readImageWithAi({ profile, model: "vision/model" }, "data:image/jpeg;base64,AAAA");
     expect(text).toBe("Figure 1: Git workflow\nWorking directory");
     const body = sentBody(0);
     expect(body.model).toBe("vision/model");
@@ -174,7 +173,7 @@ describe("readImageWithAi", () => {
   });
 
   it("asks for a vision model when none is set", async () => {
-    await expect(readImageWithAi({ ...profile, visionModel: "" }, "data:x")).rejects.toMatchObject({ kind: "config" });
+    await expect(readImageWithAi(null, "data:x")).rejects.toMatchObject({ kind: "config" });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -191,7 +190,7 @@ describe("listModels / testConnection", () => {
 
   it("asks for a model when none is selected", async () => {
     fetchMock.mockResolvedValueOnce(response(200, { data: [{ id: "a" }] }));
-    const report = await testConnection({ ...profile, fastModel: "", strongModel: "" });
+    const report = await testConnection(profile);
     expect(report.ok).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -199,7 +198,7 @@ describe("listModels / testConnection", () => {
   it("validates the key with a small chat request", async () => {
     fetchMock.mockResolvedValueOnce(response(200, { data: [{ id: "fast/model" }] }));
     fetchMock.mockResolvedValueOnce(completion("OK"));
-    const report = await testConnection(profile);
+    const report = await testConnection(profile, "fast/model");
     expect(report.ok).toBe(true);
     expect(sentBody(1).model).toBe("fast/model");
   });
@@ -211,7 +210,7 @@ describe("listModels / testConnection", () => {
       (_url: string, init: { signal: AbortSignal }) =>
         new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted")))),
     );
-    const promise = testConnection(profile);
+    const promise = testConnection(profile, "fast/model");
     const assertion = expect(promise).resolves.toMatchObject({ ok: false });
     await vi.advanceTimersByTimeAsync(60_000);
     await assertion;
@@ -224,6 +223,6 @@ describe("listModels / testConnection", () => {
   it("surfaces a bad key from the chat request", async () => {
     fetchMock.mockResolvedValueOnce(response(200, { data: [] }));
     fetchMock.mockResolvedValueOnce(response(401, "Unauthorized"));
-    await expect(testConnection(profile)).rejects.toMatchObject({ kind: "auth" });
+    await expect(testConnection(profile, "fast/model")).rejects.toMatchObject({ kind: "auth" });
   });
 });

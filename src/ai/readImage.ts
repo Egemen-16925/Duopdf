@@ -1,4 +1,4 @@
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTarget } from "../settings/providers";
 import { chat } from "./aiClient";
 import { AiError } from "./errors";
 import type { ChatMessage } from "./prompts/types";
@@ -25,11 +25,10 @@ export function readImageMessages(imageDataUrl: string): ChatMessage[] {
 }
 
 /** Görseli görsel destekli modele okutur; düz metin döner. */
-export async function readImageWithAi(profile: ProviderProfile, imageDataUrl: string): Promise<string> {
-  const model = profile.visionModel?.trim();
-  if (!model) throw new AiError("config", "Ayarlarda görsel model seçilmemiş.");
-  const result = await chat(profile, {
-    model,
+export async function readImageWithAi(target: AiTarget | null, imageDataUrl: string): Promise<string> {
+  if (!target) throw new AiError("config", "Ayarlarda görsel model seçilmemiş.");
+  const result = await chat(target.profile, {
+    model: target.model,
     messages: readImageMessages(imageDataUrl),
     maxTokens: 2048,
     temperature: 0,

@@ -15,7 +15,7 @@ import type { Jump } from "../learning/jump";
 import type { Pick } from "../learning/pick";
 import { SentencePopup } from "../learning/SentencePopup";
 import { WordPopup, type PickLocation } from "../learning/WordPopup";
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTargets } from "../settings/providers";
 import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
@@ -45,7 +45,8 @@ export interface ReaderHandle {
 }
 
 interface Props {
-  profile: ProviderProfile | null;
+  /** Her rol için seçili sağlayıcı + model. */
+  ai: AiTargets;
   ref?: Ref<ReaderHandle>;
 }
 
@@ -64,7 +65,7 @@ function formatDate(ms: number): string {
   return new Date(ms).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function ReaderPage({ profile, ref }: Props) {
+export function ReaderPage({ ai, ref }: Props) {
   const [tabs, setTabs] = useState<Tab[]>([]);
   /** Etkin sekmedeki belge kimliği; null ise belge listesi gösterilir. */
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -325,7 +326,7 @@ export function ReaderPage({ profile, ref }: Props) {
       {aiRead && (
         <AiReadPanel
           request={aiRead.request}
-          profile={profile}
+          target={ai.vision}
           onPick={(pick) => handlePick(aiRead.tab, aiRead.view, pick, aiRead.page)}
           onClose={() => setAiRead(null)}
         />
@@ -334,7 +335,7 @@ export function ReaderPage({ profile, ref }: Props) {
         <WordPopup
           pick={popup.pick}
           location={popup.location}
-          profile={profile}
+          target={ai.fast}
           onClose={closePopup}
           onTranslateSentence={translateWordSentence}
         />
@@ -343,7 +344,7 @@ export function ReaderPage({ profile, ref }: Props) {
         <SentencePopup
           pick={popup.pick}
           source={{ documentHash: popup.documentHash, page: popup.location.page }}
-          profile={profile}
+          target={ai.fast}
           onClose={closePopup}
         />
       )}

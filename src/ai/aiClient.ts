@@ -1,6 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { z } from "zod";
-import type { ProviderProfile } from "../settings/providers";
+import type { AiTarget, ProviderProfile } from "../settings/providers";
 import { AiError, errorForStatus } from "./errors";
 import { extractJson, stripThinking } from "./json";
 import type { ChatMessage, PromptTemplate } from "./prompts/types";
@@ -142,28 +142,17 @@ function validate<T>(schema: z.ZodType<T>, text: string): { data?: T; error?: st
   return parsed.success ? { data: parsed.data } : { error: z.prettifyError(parsed.error) };
 }
 
-export function modelForRole(profile: ProviderProfile, role: "fast" | "strong"): string {
-  const model = role === "fast" ? profile.fastModel : profile.strongModel;
-  if (!model.trim()) {
-    throw new AiError(
-      "config",
-      role === "fast" ? "Ayarlarda hızlı model seçilmemiş." : "Ayarlarda güçlü model seçilmemiş.",
-    );
-  }
-  return model;
-}
-
 /**
  * Şablonu çalıştırır ve yanıtı şemayla doğrular. Doğrulama hatasını fırlatmaz,
  * sonuçta raporlar. `repair` açıksa geçersiz yanıtta hatayı modele gösterip bir kez yeniden dener.
  */
 export async function runPrompt<I, O>(
-  profile: ProviderProfile,
+  target: AiTarget,
   template: PromptTemplate<I, O>,
   input: I,
-  opts: { model?: string; repair?: boolean; retries?: number } = {},
+  opts: { repair?: boolean; retries?: number } = {},
 ): Promise<PromptRun<O>> {
-  const model = opts.model ?? modelForRole(profile, template.role);
+  const { profile, model } = target;
   const messages = template.build(input);
   const first = await chat(profile, { model, messages, jsonMode: true, retries: opts.retries });
   const checked = validate(template.schema, first.text);
@@ -195,8 +184,8 @@ export async function runPrompt<I, O>(
 }
 
 /** Şablonu çalıştırır; geçerli veri gelmezse anlaşılır bir AiError fırlatır. */
-export async function generate<I, O>(profile: ProviderProfile, template: PromptTemplate<I, O>, input: I): Promise<O> {
-  const run = await runPrompt(profile, template, input, { repair: true });
+export async function generate<I, O>(target: AiTarget, template: PromptTemplate<I, O>, input: I): Promise<O> {
+  const run = await runPrompt(target, template, input, { repair: true });
   if (run.data === undefined) {
     throw new AiError("badResponse", "Model geçerli bir yanıt üretemedi. Tekrar dene veya başka model seç.", run.status, run.validationError);
   }
@@ -221,17 +210,17 @@ export interface ConnectionReport {
 }
 
 /**
- * Önce model listesini çeker (adres doğru mu), sonra seçili modele küçük bir istek atar
+ * Önce model listesini çeker (adres doğru mu), sonra verilen modele küçük bir istek atar
  * (anahtar ve model doğru mu). NVIDIA'da model listesi anahtarsız da döner, bu yüzden ikinci adım şart.
+ * `model`: bu sağlayıcıya atanmış rollerden biri; yoksa yalnızca adres denetlenir.
  */
-export async function testConnection(profile: ProviderProfile): Promise<ConnectionReport> {
+export async function testConnection(profile: ProviderProfile, model = ""): Promise<ConnectionReport> {
   if (!profile.apiKey.trim()) throw new AiError("config", "API anahtarı girilmemiş.");
   const models = await listModels(profile);
-  const model = profile.fastModel.trim() || profile.strongModel.trim();
-  if (!model) {
+  if (!model.trim()) {
     return {
       ok: false,
-      message: `Sunucuya ulaşıldı (${models.length} model listelendi), ama anahtarı doğrulamak için önce bir hızlı model seç.`,
+      message: `Sunucuya ulaşıldı (${models.length} model listelendi), ama anahtarı doğrulamak için "Modeller" bölümünde bu sağlayıcıya bir model ata.`,
     };
   }
   const res = await chat(profile, {
