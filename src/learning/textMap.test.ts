@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { cleanText, findSentence, sentenceAround } from "./sentence";
+import { cleanText, findSentence, segmentSentences, sentenceAround } from "./sentence";
 import { buildTextMap, offsetOf, rangeFor } from "./textMap";
 
 function el(html: string): HTMLElement {
@@ -14,6 +14,15 @@ describe("buildTextMap", () => {
   it("joins PDF text-layer spans with spaces", () => {
     const root = el('<span>Version</span><span>control systems</span><br><span> record changes.</span>');
     expect(buildTextMap(root, "pdf").text).toBe("Version control systems record changes.");
+  });
+
+  it("starts a new paragraph in PDF text when the font size jumps (heading → body)", () => {
+    const root = el(
+      '<span style="--font-height: 18px">Introduction</span><span style="--font-height: 10px">Version control</span><span style="--font-height: 10.4px">records changes.</span>',
+    );
+    const text = buildTextMap(root, "pdf").text;
+    expect(text).toBe("Introduction\nVersion control records changes.");
+    expect(sentenceAround(text, text.indexOf("control")).text).toBe("Version control records changes.");
   });
 
   it("keeps inline formatting together but separates blocks in flowing text", () => {
@@ -55,5 +64,33 @@ describe("sentences", () => {
     const found = findSentence(page, "It stores snapshots of the project.")!;
     expect(cleanText(page.slice(found.start, found.end))).toBe("It stores snapshots of the project.");
     expect(findSentence(page, "Nothing like this")).toBeNull();
+  });
+});
+
+describe("segmentSentences", () => {
+  const split = (text: string) => segmentSentences(text).map((s) => text.slice(s.start, s.end).trim());
+
+  it("does not split after common abbreviations and initials", () => {
+    expect(split("Many tools exist, e.g. Git and Mercurial. They differ.")).toEqual([
+      "Many tools exist, e.g. Git and Mercurial.",
+      "They differ.",
+    ]);
+    expect(split("Dr. Brown wrote it in the U.S. in 2019. Then he left.")).toEqual([
+      "Dr. Brown wrote it in the U.S. in 2019.",
+      "Then he left.",
+    ]);
+    expect(split("As shown in Fig. 3, it drops. J. Smith agreed.")).toEqual(["As shown in Fig. 3, it drops.", "J. Smith agreed."]);
+  });
+
+  it("keeps headings on their own line separate", () => {
+    expect(split("Introduction\nVersion control records changes. Commit often.")).toEqual([
+      "Introduction",
+      "Version control records changes.",
+      "Commit often.",
+    ]);
+  });
+
+  it("splits questions and exclamations", () => {
+    expect(split("Is it fast? Yes! It is.")).toEqual(["Is it fast?", "Yes!", "It is."]);
   });
 });

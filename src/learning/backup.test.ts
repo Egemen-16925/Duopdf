@@ -4,7 +4,8 @@ import { DuopdfDB } from "../db/db";
 import { registerOpened } from "../db/documents";
 import { clearLearningData, exportLearningData, importLearningData, parseBackup } from "./backup";
 import { cached } from "./cache";
-import { markTerm } from "./terms";
+import { translateSentence } from "./sentences";
+import { deleteTerm, markTerm } from "./terms";
 
 let db: DuopdfDB;
 let counter = 0;
@@ -27,6 +28,9 @@ async function seed() {
     occurrence: { documentId: doc.id, page: 2, view: "text", sentence: "We ran it." },
   });
   await cached(db, { id: "wordMeaning", version: 1 }, { word: "ran" }, async () => ({ anlam: "koşmak" }));
+  await translateSentence(db, "We ran it.", async () => ({ ceviri: "Onu çalıştırdık.", dilbilgisiNotu: "Geçmiş zaman." }));
+  const gone = await markTerm(db, { surface: "old", lemma: "old", status: "known" });
+  await deleteTerm(db, gone.id);
 }
 
 describe("backup", () => {
@@ -37,12 +41,24 @@ describe("backup", () => {
     expect(await db.terms.count()).toBe(0);
 
     const summary = await importLearningData(db, parseBackup(json));
-    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1 });
+    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1, sentences: 1 });
     const [term] = await db.terms.toArray();
     expect(term).toMatchObject({ lemma: "run", meaning: "koşmak", status: "unknown" });
     const [occ] = await db.occurrences.toArray();
     expect(occ.termId).toBe(term.id);
     expect(await db.cache.count()).toBe(1);
+    expect((await db.sentences.toArray())[0]).toMatchObject({ text: "We ran it.", translation: "Onu çalıştırdık." });
+    expect(await db.tombstones.get("term:old")).toBeDefined();
+  });
+
+  it("still imports backups made before sentence translations existed", async () => {
+    await seed();
+    const backup = JSON.parse(JSON.stringify(await exportLearningData(db)));
+    delete backup.data.sentences;
+    delete backup.data.tombstones;
+    const summary = await importLearningData(db, parseBackup(JSON.stringify(backup)));
+    expect(summary.sentences).toBe(0);
+    expect(await db.terms.count()).toBe(1);
   });
 
   it("never contains provider settings or API keys", async () => {

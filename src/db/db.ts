@@ -61,6 +61,28 @@ export interface OccurrenceRecord {
   createdAt: number;
 }
 
+/** Çevirisi istenmiş cümle. Aynı cümle hangi belgede olursa olsun bir kez çevrilir. */
+export interface SentenceRecord {
+  id: number;
+  /** Temizlenmiş cümle metninin SHA-256 özeti (cihazdan bağımsız anahtar). */
+  key: string;
+  text: string;
+  translation: string;
+  grammarNote: string;
+  /** İlk görüldüğü yer (bilgi amaçlı; belge hash'i cihazlar arasında aynıdır). */
+  documentHash?: string;
+  page?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Silinen kaydın izi; eşitlemede silinenin başka cihazdan geri gelmesini önler. */
+export interface TombstoneRecord {
+  /** "<tablo>:<kararlı anahtar>", ör. "term:run". */
+  key: string;
+  deletedAt: number;
+}
+
 export interface CacheRecord {
   key: string;
   value: unknown;
@@ -72,6 +94,8 @@ export class DuopdfDB extends Dexie {
   terms!: EntityTable<TermRecord, "id">;
   occurrences!: EntityTable<OccurrenceRecord, "id">;
   cache!: EntityTable<CacheRecord, "key">;
+  sentences!: EntityTable<SentenceRecord, "id">;
+  tombstones!: EntityTable<TombstoneRecord, "key">;
 
   constructor(name = "duopdf") {
     super(name);
@@ -95,6 +119,14 @@ export class DuopdfDB extends Dexie {
       terms: "++id, &key, status, createdAt",
       occurrences: "++id, termId, documentId",
       cache: "&key",
+    });
+    this.version(4).stores({
+      documents: "++id, &hash, lastOpenedAt",
+      terms: "++id, &key, status, createdAt",
+      occurrences: "++id, termId, documentId",
+      cache: "&key",
+      sentences: "++id, &key, updatedAt",
+      tombstones: "&key",
     });
   }
 }

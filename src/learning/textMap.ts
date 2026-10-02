@@ -16,24 +16,38 @@ function blockOf(node: Node, root: Element): Element | null {
   return el && root.contains(el) ? el : root;
 }
 
+/** pdf.js'in metin parçasına yazdığı punto yüksekliği (yoksa 0). */
+function fontHeight(node: Text): number {
+  const value = node.parentElement?.style.getPropertyValue("--font-height") ?? "";
+  return Number.parseFloat(value) || 0;
+}
+
+/** Punto bu orandan fazla değişirse (başlık → gövde) parçalar ayrı paragraf sayılır. */
+const FONT_JUMP = 1.2;
+
 export function buildTextMap(root: Element, mode: TextMode): TextMap {
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   const nodes: TextMap["nodes"] = [];
   let text = "";
   let prevBlock: Element | null = null;
+  let prevHeight = 0;
   for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
     const value = node.data;
     if (!value) continue;
     if (text) {
       // PDF metin katmanında her parça ayrı <span>; aralarına boşluk koy. Akan metinde yalnızca blok değişince.
       if (mode === "pdf") {
-        if (!/\s$/.test(text) && !/^\s/.test(value)) text += " ";
+        const height = fontHeight(node);
+        const jump = prevHeight > 0 && height > 0 && Math.max(height / prevHeight, prevHeight / height) > FONT_JUMP;
+        if (jump && !/\n\s*$/.test(text)) text += "\n";
+        else if (!/\s$/.test(text) && !/^\s/.test(value)) text += " ";
       } else {
         const block = blockOf(node, root);
         if (block !== prevBlock && !/\s$/.test(text)) text += "\n";
       }
     }
     prevBlock = blockOf(node, root);
+    if (mode === "pdf") prevHeight = fontHeight(node) || prevHeight;
     nodes.push({ node, start: text.length });
     text += value;
   }

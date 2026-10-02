@@ -19,8 +19,13 @@ const backupSchema = z.object({
     terms: z.array(withId.extend({ key: z.string(), status: z.enum(["unknown", "learning", "known"]) })),
     occurrences: z.array(withId.extend({ termId: z.number(), documentId: z.number() })),
     cache: z.array(z.object({ key: z.string() }).passthrough()),
+    // Faz 4'te eklendi; eski yedeklerde yoksa boş sayılır.
+    sentences: z.array(withId.extend({ key: z.string(), text: z.string() })).default([]),
+    tombstones: z.array(z.object({ key: z.string(), deletedAt: z.number() })).default([]),
   }),
 });
+
+const TABLES = ["documents", "terms", "occurrences", "cache", "sentences", "tombstones"] as const;
 
 export type BackupFile = z.infer<typeof backupSchema>;
 
@@ -28,19 +33,15 @@ export interface BackupSummary {
   documents: number;
   terms: number;
   occurrences: number;
+  sentences: number;
 }
 
 export async function exportLearningData(db: DuopdfDB, now = new Date()): Promise<BackupFile> {
-  const backup = await db.transaction("r", db.documents, db.terms, db.occurrences, db.cache, async () => ({
+  const backup = await db.transaction("r", TABLES.map((t) => db.table(t)), async () => ({
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: now.toISOString(),
-    data: {
-      documents: await db.documents.toArray(),
-      terms: await db.terms.toArray(),
-      occurrences: await db.occurrences.toArray(),
-      cache: await db.cache.toArray(),
-    },
+    data: Object.fromEntries(await Promise.all(TABLES.map(async (t) => [t, await db.table(t).toArray()]))),
   }));
   // Kayıt tipleri şemanın gevşek (passthrough) tipinden daha dar; yapı aynı.
   return backup as unknown as BackupFile;
@@ -51,6 +52,7 @@ export function summarize(backup: BackupFile): BackupSummary {
     documents: backup.data.documents.length,
     terms: backup.data.terms.length,
     occurrences: backup.data.occurrences.length,
+    sentences: backup.data.sentences.length,
   };
 }
 
@@ -68,18 +70,15 @@ export function parseBackup(json: string): BackupFile {
 
 /** Mevcut öğrenme verisini yedektekiyle değiştirir (tek işlemde; yarıda kalmaz). */
 export async function importLearningData(db: DuopdfDB, backup: BackupFile): Promise<BackupSummary> {
-  await db.transaction("rw", db.documents, db.terms, db.occurrences, db.cache, async () => {
-    await Promise.all([db.documents.clear(), db.terms.clear(), db.occurrences.clear(), db.cache.clear()]);
-    await db.documents.bulkAdd(backup.data.documents as never[]);
-    await db.terms.bulkAdd(backup.data.terms as never[]);
-    await db.occurrences.bulkAdd(backup.data.occurrences as never[]);
-    await db.cache.bulkAdd(backup.data.cache as never[]);
+  await db.transaction("rw", TABLES.map((t) => db.table(t)), async () => {
+    await Promise.all(TABLES.map((t) => db.table(t).clear()));
+    for (const t of TABLES) await db.table(t).bulkAdd(backup.data[t]);
   });
   return summarize(backup);
 }
 
 export async function clearLearningData(db: DuopdfDB): Promise<void> {
-  await db.transaction("rw", db.documents, db.terms, db.occurrences, db.cache, async () => {
-    await Promise.all([db.documents.clear(), db.terms.clear(), db.occurrences.clear(), db.cache.clear()]);
+  await db.transaction("rw", TABLES.map((t) => db.table(t)), async () => {
+    await Promise.all(TABLES.map((t) => db.table(t).clear()));
   });
 }

@@ -32,7 +32,7 @@ export function newReview(now: number): TermRecord["review"] {
 
 /** Terimi oluşturur ya da günceller; varsa geçtiği yeri de kaydeder (aynı cümle iki kez yazılmaz). */
 export async function markTerm(db: DuopdfDB, input: MarkInput, now = Date.now()): Promise<TermRecord> {
-  return db.transaction("rw", db.terms, db.occurrences, async () => {
+  return db.transaction("rw", db.terms, db.occurrences, db.tombstones, async () => {
     const key = termKey(input.lemma);
     const pattern = patternFor(words(input.surface), words(input.lemma));
     const existing =
@@ -66,6 +66,8 @@ export async function markTerm(db: DuopdfDB, input: MarkInput, now = Date.now())
       };
       const id = await db.terms.add(record as TermRecord);
       term = { ...record, id };
+      // Daha önce silinmiş bir kelime yeniden işaretlendiyse silme izi kalkar.
+      await db.tombstones.delete(`term:${key}`);
     }
 
     const occ = input.occurrence;
@@ -94,10 +96,13 @@ export async function updateTermText(
   await db.terms.update(id, { ...fields, updatedAt: now });
 }
 
-export async function deleteTerm(db: DuopdfDB, id: number): Promise<void> {
-  await db.transaction("rw", db.terms, db.occurrences, async () => {
+/** Terimi ve geçişlerini siler; eşitleme için silme izi bırakır. */
+export async function deleteTerm(db: DuopdfDB, id: number, now = Date.now()): Promise<void> {
+  await db.transaction("rw", db.terms, db.occurrences, db.tombstones, async () => {
+    const term = await db.terms.get(id);
     await db.occurrences.where("termId").equals(id).delete();
     await db.terms.delete(id);
+    if (term) await db.tombstones.put({ key: `term:${term.key}`, deletedAt: now });
   });
 }
 
