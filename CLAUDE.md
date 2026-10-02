@@ -43,7 +43,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
 - [x] Faz 3 — Kelime işaretleme
 - [x] Faz 4 — Cümle çevirisi
-- [ ] Faz 4c — Görsellerden metin (OCR)
+- [x] Faz 4c — Görsellerden metin (OCR)
 - [ ] Faz 4b — Kalemle not alma (4c'den sonra)
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
@@ -324,3 +324,11 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Cümle çevirisine erişim: 6 kelimeden uzun ya da cümle sınırını aşan seçim, Alt + tıklama, kelime penceresindeki "Cümleyi çevir". Çevrilen cümle sayfada `duo-sentence` vurgusuyla gösterilir.
 - 2026-10-02: Egemen'in gözlemi: `gpt-oss-20b` kelime anlamlarında hata yapabiliyor ve `nemotron-3-super-120b-a12b`'den yavaş. Hızlı rol için super, güçlü rol için ultra önerildi; seçim Egemen'de.
 - 2026-10-02: Sıra değişti: Faz 4c (OCR) Faz 4b'den önce. Faz 4b'ye geçici parlak kalem (kalıcı olmayan, kelime/cümle penceresi açan) eklendi.
+- 2026-10-02: OCR: Tesseract.js 7, LSTM, İngilizce `4.0.0_best_int` (2,9 MB); çalışma dosyaları derlemede `public/tesseract/`'e kopyalanır, CDN kullanılmaz. Tek işçi, işler sırayla. Uzun kenarı 2400 px'ten büyük resimler küçültülür, EXIF yönü uygulanır. Güveni 55'in altındaki ve harf/rakam içermeyen kelimeler atılır.
+- 2026-10-02: OCR sonuçları görsel boyutuna oranla (0-1) saklanır, `ocr` tablosunda önbelleğe alınır (anahtar: resim baytlarının SHA-256'sı ya da `page:<hash>:<görünüm>:<sayfa>`); yeniden üretilebildiği için yedeğe girmez.
+- 2026-10-02: OCR metin katmanı pdf.js metin katmanıyla aynı sınıf/değişkenleri (`textLayer`, `--font-height`, `--scale-x`, `--total-scale-factor`) kullanır; kelime seçme, vurgulama, çeviri ve yakınlaştırma aynen çalışır. Satırdaki kelimeler satırın yüksekliğini paylaşır; noktalamasız biten satırdan sonra büyük harfle başlayan satır ayrı satır sayılır (başlık/etiket).
+- 2026-10-02: PDF'te yalnızca büyük görsel içeren sayfalar (çizim komutlarından, ≥2500 pt²) ve yalnızca görsel bölgesi taranır; gerçek metnin üstüne düşen OCR kelimeleri atlanır. Metin görünümünde (EPUB/DOCX/PPTX) resimler gösterilmez, yerlerine OCR yazısı gelir; PPTX metin görünümü artık slayt resimlerini de alır.
+- 2026-10-02: Resim dosyaları (PNG, JPG, WEBP, BMP) belge olarak açılır (`format: image`).
+- 2026-10-02: Yedek yol: "Yapay zekâ ile oku", profilde isteğe bağlı `visionModel`; OpenAI `image_url` biçimi, resim en çok 1600 px JPEG. Sonuç `cache` tablosunda, panelde gösterilir ve içindeki kelimeler işaretlenebilir.
+- 2026-10-02: Görüntüleyiciler hata sınırıyla sarıldı; bir belge çökerse yalnızca kendi sekmesinde hata gösterilir.
+- 2026-10-02: Faz 8 için not: `public/tesseract/core/` üç çekirdek sürümü içeriyor (~20 MB); paketlemede gerçekten yüklenenler ölçülüp gereksizler çıkarılmalı.
