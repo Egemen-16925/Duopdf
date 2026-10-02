@@ -9,6 +9,7 @@ Kendi ders PDF'lerini açarsın, bilmediğin terimleri işaretlersin, cümleleri
 ## Özellikler (planlanan)
 
 - PDF okuyucu: seçilebilir metin, yakınlaştırma, kaldığın sayfadan devam
+- EPUB, DOCX, PPTX ve TXT dosyalarını metin görünümünde açma; belgeler sekmelerde
 - Kelime işaretleme: cümle içindeki anlam, kök hâli, "bilmiyorum / az biliyorum / biliyorum"
 - Cümle çevirisi ve kısa dilbilgisi notu
 - Çoktan seçmeli ve açık uçlu çeviri sınavları, aralıklı tekrar

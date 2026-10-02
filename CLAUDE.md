@@ -40,7 +40,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 0 — Kurulum, iskelet, GitHub
 - [x] Faz 1 — Ayarlar, API bağlantısı, model testi
 - [x] Faz 2 — PDF okuyucu
-- [ ] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
+- [x] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
 - [ ] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
 - [ ] Faz 4b — Kalemle not alma
@@ -276,3 +276,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Taranmış PDF tespiti: ilk 5 sayfada toplam 20'den az metin karakteri.
 - 2026-10-02: Seçilen modeller: hızlı `openai/gpt-oss-20b`, güçlü `nvidia/nemotron-3-super-120b-a12b` (Egemen'in testleri).
 - 2026-10-02: Egemen'in isteğiyle Faz 2b (diğer formatlar, sekmeler, geçmiş temizleme) ve Faz 4b (kalemle not alma) eklendi. Formatlar Faz 3'ten önce, çünkü işaretleme ve çeviri baştan tüm formatlarda çalışmalı.
+- 2026-10-02: PDF dışı biçimler tek bir "akan metin" modeline (bölümler + temizlenmiş HTML) çevrilir: EPUB kendi ayrıştırıcımızla (jszip), DOCX mammoth ile, PPTX slayt metni olarak, TXT UTF-8/Windows-1254. HTML DOMPurify ile temizlenir; DOMPurify desteklenmezse içerik gösterilmez.
+- 2026-10-02: Akan metinde konum = bölüm (lastPage) + bölüm içi oran (lastOffset). `documents` tablosu sürüm 2: format, lastOffset, hiddenFromRecent.
+- 2026-10-02: Sekmeler ve okuyucu sayfası gizlenince `display:none` değil `visibility:hidden` kullanılır; kaydırma konumu korunur.
+- 2026-10-02: DOM gerektiren testler jsdom ile çalışır (happy-dom'da DOMPurify düzgün çalışmıyor).
