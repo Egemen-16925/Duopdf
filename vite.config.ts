@@ -1,4 +1,4 @@
-import { cpSync } from "node:fs";
+import { cpSync, readdirSync } from "node:fs";
 import process from "node:process";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -16,9 +16,29 @@ function copyPdfjsAssets(): Plugin {
   };
 }
 
+// Tesseract.js (OCR) çalışma dosyası, çekirdek wasm ve İngilizce verisini public/tesseract altına kopyalar.
+// İnternetsiz çalışması için hiçbir şey CDN'den indirilmez.
+function copyTesseractAssets(): Plugin {
+  return {
+    name: "copy-tesseract-assets",
+    buildStart() {
+      cpSync("node_modules/tesseract.js/dist/worker.min.js", "public/tesseract/worker.min.js");
+      for (const file of readdirSync("node_modules/tesseract.js-core")) {
+        if (/^tesseract-core.*lstm\.(wasm|wasm\.js|js)$/.test(file)) {
+          cpSync(`node_modules/tesseract.js-core/${file}`, `public/tesseract/core/${file}`);
+        }
+      }
+      cpSync(
+        "node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
+        "public/tesseract/lang/eng.traineddata.gz",
+      );
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [react(), copyPdfjsAssets()],
+  plugins: [react(), copyPdfjsAssets(), copyTesseractAssets()],
   // Masaüstü uygulaması dosyaları diskten yükler; pdf.js yüzünden büyüyen paket sorun değil.
   build: { chunkSizeWarningLimit: 2000 },
 

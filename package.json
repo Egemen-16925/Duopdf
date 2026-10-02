@@ -16,6 +16,7 @@
     "@tauri-apps/plugin-http": "^2.8.0",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2.5.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "dexie": "^4.4.6",
     "dompurify": "^3.4.16",
     "jszip": "^3.10.2",
@@ -23,6 +24,7 @@
     "pdfjs-dist": "^6.3.289",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "tesseract.js": "^7.0.0",
     "wink-lemmatizer": "^3.0.4",
     "zod": "^4.6.5"
   },

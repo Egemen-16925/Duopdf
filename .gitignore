@@ -35,3 +35,6 @@ harness.html
 src/__harness.tsx
 public/__harness/
 .claude/launch.json
+
+# Tesseract.js varliklari (vite derlemede kopyalanir)
+public/tesseract/

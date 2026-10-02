@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { DocFormat } from "../formats/types";
 import type { TermStatus } from "../learning/matcher";
+import type { OcrResult } from "../ocr/result";
 
 /**
  * Öğrenme verisi (IndexedDB). Sağlayıcı ayarlarından tamamen ayrıdır;
@@ -83,6 +84,14 @@ export interface TombstoneRecord {
   deletedAt: number;
 }
 
+/** OCR sonucu (yeniden üretilebilir; yedeğe girmez). */
+export interface OcrRecord {
+  /** "img:<görsel baytlarının SHA-256'sı>" ya da "page:<belge hash>:<görünüm>:<sayfa>". */
+  key: string;
+  result: OcrResult;
+  createdAt: number;
+}
+
 export interface CacheRecord {
   key: string;
   value: unknown;
@@ -96,6 +105,7 @@ export class DuopdfDB extends Dexie {
   cache!: EntityTable<CacheRecord, "key">;
   sentences!: EntityTable<SentenceRecord, "id">;
   tombstones!: EntityTable<TombstoneRecord, "key">;
+  ocr!: EntityTable<OcrRecord, "key">;
 
   constructor(name = "duopdf") {
     super(name);
@@ -127,6 +137,15 @@ export class DuopdfDB extends Dexie {
       cache: "&key",
       sentences: "++id, &key, updatedAt",
       tombstones: "&key",
+    });
+    this.version(5).stores({
+      documents: "++id, &hash, lastOpenedAt",
+      terms: "++id, &key, status, createdAt",
+      occurrences: "++id, termId, documentId",
+      cache: "&key",
+      sentences: "++id, &key, updatedAt",
+      tombstones: "&key",
+      ocr: "&key",
     });
   }
 }
