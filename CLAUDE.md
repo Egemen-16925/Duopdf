@@ -37,7 +37,7 @@ Her fazın sonunda sırayla:
 
 ## İlerleme durumu
 
-- [ ] Faz 0 — Kurulum, iskelet, GitHub
+- [x] Faz 0 — Kurulum, iskelet, GitHub
 - [ ] Faz 1 — Ayarlar, API bağlantısı, model testi
 - [ ] Faz 2 — PDF okuyucu
 - [ ] Faz 3 — Kelime işaretleme
@@ -243,3 +243,4 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 Önemli kararları tarihle ve tek satırla buraya ekle.
 
 - 2026-10-02: Tauri 2 + React + Dexie seçildi; sunucu yok, veriler cihazda.
+- 2026-10-02: Depo herkese açık `Egemen-16925/Duopdf` olarak açıldı; uygulama kimliği `com.egemen.duopdf`, Rust stable-msvc winget ile kuruldu.
