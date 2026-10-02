@@ -43,8 +43,8 @@ Her fazın sonunda sırayla:
 - [x] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
 - [x] Faz 3 — Kelime işaretleme
 - [x] Faz 4 — Cümle çevirisi
-- [ ] Faz 4b — Kalemle not alma
 - [ ] Faz 4c — Görsellerden metin (OCR)
+- [ ] Faz 4b — Kalemle not alma (4c'den sonra)
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
@@ -215,6 +215,7 @@ Her fazın sonunda "Faz kapanışı" adımlarını uygula.
 
 - Belge üzerine serbest çizim: kaleme basınç duyarlı (Pointer Events `pressure`), renk ve kalınlık, silgi.
 - Geri al / yinele (Ctrl+Z / Ctrl+Y ve düğmeler).
+- Geçici parlak kalem: metnin üzerinden geçince altındaki kelimelere yapışan, birkaç saniyede solan iz; bırakınca kısa parça için kelime penceresi, uzun parça için cümle çevirisi açılır. Kalıcı değildir, kaydedilmez. Fare, kalem ve parmakla (tablet) çalışır.
 - Çizimler belge dosyasına yazılmaz; öğrenme verisinin yanında (Dexie) belge hash'ine bağlı saklanır ve yedeğe girer.
 - Notları dışa aktarma (biçim fazın başında Egemen'le netleştirilecek).
 - Aynı kod Android'de (Faz 9) dokunmatik kalemle çalışacak şekilde yazılır.
@@ -321,3 +322,5 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Cümle bölme: Intl.Segmenter + kısaltma düzeltmesi (e.g., Dr., Fig., tek harfli baş harfler). PDF'te punto %20'den fazla değişince (başlık → gövde) paragraf sonu sayılır. Sayfalar arası bölünen cümleler şimdilik iki parça kalır.
 - 2026-10-02: Çeviriler `sentences` tablosunda (anahtar: temizlenmiş cümlenin SHA-256'sı) kalıcı tutulur; ayrı önbellek yok, internetsiz de görünür, "Yeniden çevir" üzerine yazar. Silmeler `tombstones` tablosuna iz bırakır (eşitleme hazırlığı). Yedek bu iki tabloyu da içerir; eski yedekler açılmaya devam eder.
 - 2026-10-02: Cümle çevirisine erişim: 6 kelimeden uzun ya da cümle sınırını aşan seçim, Alt + tıklama, kelime penceresindeki "Cümleyi çevir". Çevrilen cümle sayfada `duo-sentence` vurgusuyla gösterilir.
+- 2026-10-02: Egemen'in gözlemi: `gpt-oss-20b` kelime anlamlarında hata yapabiliyor ve `nemotron-3-super-120b-a12b`'den yavaş. Hızlı rol için super, güçlü rol için ultra önerildi; seçim Egemen'de.
+- 2026-10-02: Sıra değişti: Faz 4c (OCR) Faz 4b'den önce. Faz 4b'ye geçici parlak kalem (kalıcı olmayan, kelime/cümle penceresi açan) eklendi.
