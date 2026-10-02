@@ -55,6 +55,47 @@ fn read_backup(path: String) -> Result<String, String> {
     std::fs::read_to_string(p).map_err(|e| format!("Yedek okunamadı: {e}"))
 }
 
+/// `encodeURIComponent` ile kodlanmış metni çözer (yol, ASCII olmayan harfler içerebilir).
+fn percent_decode(text: &str) -> Result<String, String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|_| "Geçersiz yol.")?;
+            out.push(u8::from_str_radix(hex, 16).map_err(|_| "Geçersiz yol.")?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|_| "Geçersiz yol.".into())
+}
+
+/// Çizimli PDF'i yazar (yalnızca .pdf). Baytlar ham gövde olarak, yol `path` başlığında gelir.
+#[tauri::command]
+fn write_pdf(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("PDF verisi gelmedi.".into());
+    };
+    let encoded = request
+        .headers()
+        .get("path")
+        .and_then(|v| v.to_str().ok())
+        .ok_or("Kaydedilecek yer belirtilmedi.")?;
+    let path = percent_decode(encoded)?;
+    let p = Path::new(&path);
+    let is_pdf = p
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("pdf"))
+        .unwrap_or(false);
+    if !is_pdf {
+        return Err("Dosya .pdf uzantılı olmalı.".into());
+    }
+    std::fs::write(p, bytes).map_err(|e| format!("PDF yazılamadı: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -66,9 +107,24 @@ pub fn run() {
             read_document,
             write_backup,
             read_backup,
+            write_pdf,
             office::office_available,
             office::convert_with_office
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::percent_decode;
+
+    #[test]
+    fn decodes_windows_paths() {
+        assert_eq!(
+            percent_decode("C%3A%5CDers%5C%C3%B6devler%5Cnot%20(notlu).pdf").unwrap(),
+            r"C:\Ders\ödevler\not (notlu).pdf"
+        );
+        assert_eq!(percent_decode("abc%").unwrap(), "abc%");
+    }
 }
