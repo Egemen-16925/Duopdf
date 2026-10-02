@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { docxToSections } from "./docx";
 import { epubToReflow } from "./epub";
-import { pptxToSections } from "./pptx";
+import { pptxToReflow } from "./pptx";
 import { sanitizeHtml } from "./sanitize";
 import { decodeText, textToSections } from "./txt";
 import { formatFromPath } from "./types";
@@ -84,15 +84,40 @@ describe("pptx", () => {
       "ppt/slides/slide1.xml": slide(shape(["Second slide body"])),
       "ppt/slides/slide2.xml": slide(shape(["Version Control"], "title") + shape(["Git tracks changes", "Commit often &amp; &lt;early&gt;"])),
     });
-    const sections = await pptxToSections(bytes);
+    const { sections } = await pptxToReflow(bytes);
     expect(sections.map((s) => s.title)).toEqual(["Slayt 1: Version Control", "Slayt 2"]);
     expect(sections[0].html).toContain("<p>Git tracks changes</p>");
     expect(sections[0].html).toContain("<p>Commit often &amp; &lt;early&gt;</p>");
     expect(sections[1].html).toContain("Second slide body");
   });
 
+  it("keeps pictures (also inside groups) in slide order", async () => {
+    const pic = (rid: string) => `<p:pic><p:blipFill><a:blip r:embed="${rid}"/></p:blipFill></p:pic>`;
+    const bytes = await zipBytes({
+      "ppt/presentation.xml": `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>`,
+      "ppt/_rels/presentation.xml.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="slides/slide1.xml"/></Relationships>`,
+      "ppt/slides/slide1.xml": slide(
+        shape(["Diagram"], "title") + shape(["Before"]) + pic("rIdA") + `<p:grpSp>${shape(["Grouped"])}${pic("rIdB")}</p:grpSp>`,
+      ).replace("<p:sld ", '<p:sld xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '),
+      "ppt/slides/_rels/slide1.xml.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdA" Target="../media/image1.png"/><Relationship Id="rIdB" Target="../media/image1.png"/></Relationships>`,
+      "ppt/media/image1.png": new Uint8Array([1, 2, 3]),
+    });
+    const made: string[] = [];
+    const doc = await pptxToReflow(bytes, (data, mime) => {
+      made.push(`${mime}:${data.length}`);
+      return "blob:img1";
+    });
+    const html = doc.sections[0].html;
+    expect(doc.sections[0].title).toBe("Slayt 1: Diagram");
+    expect(html.indexOf("Before")).toBeLessThan(html.indexOf("blob:img1"));
+    expect(html.indexOf('src="blob:img1"')).toBeLessThan(html.indexOf("Grouped"));
+    expect(html.match(/<img /g)).toHaveLength(2);
+    expect(made).toEqual(["image/png:3"]);
+    expect(doc.objectUrls).toEqual(["blob:img1"]);
+  });
+
   it("rejects a zip that is not a presentation", async () => {
-    await expect(pptxToSections(await zipBytes({ "a.txt": "x" }))).rejects.toThrow("PPTX");
+    await expect(pptxToReflow(await zipBytes({ "a.txt": "x" }))).rejects.toThrow("PPTX");
   });
 });
 

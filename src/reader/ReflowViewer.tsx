@@ -4,6 +4,7 @@ import type { ReflowDoc } from "../formats/types";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
+import { replaceImagesWithText } from "../ocr/reflowImages";
 import { locate, scrollTopFor, type SectionBox } from "./position";
 
 interface Props {
@@ -53,13 +54,16 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
     programmaticTop.current = el.scrollTop;
   }
 
-  // İlk açılışta kaldığı yere git; resimler yüklenip düzen değişirse kullanıcı kaydırmadıysa tekrar konumlan.
+  // Resimler gösterilmez; yerlerine içlerindeki yazı (OCR) gelir. Sonra kaldığı yere git;
+  // yazı eklenip düzen değişirse kullanıcı henüz kaydırmadıysa yeniden konumlan.
   useLayoutEffect(() => {
-    restore();
-    const images = Array.from(scrollRef.current?.querySelectorAll("img") ?? []);
-    Promise.all(images.map((img) => img.decode().catch(() => undefined))).then(() => {
+    const sections = sectionRefs.current.filter((el): el is HTMLElement => el != null);
+    const stop = replaceImagesWithText(sections, scrollRef.current!, (section) => {
+      trackRoot(section, "flow");
       if (!userScrolled.current) restore();
     });
+    restore();
+    return stop;
   }, [doc]);
 
   // Bölümleri vurgulamaya bağla (terimler değişince yeniden hesaplanır).

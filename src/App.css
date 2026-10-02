@@ -1017,3 +1017,28 @@ pre {
   font-size: 0.85rem;
   white-space: nowrap;
 }
+
+/* Metin görünümünde resmin yerine gelen OCR yazısı */
+
+.ocr-text {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+  margin: 1em 0;
+}
+
+.ocr-text.pending {
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.ocr-caption {
+  display: block;
+  font-size: 0.7em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ocr-text p {
+  margin: 0.3em 0;
+}

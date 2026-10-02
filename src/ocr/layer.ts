@@ -1,4 +1,4 @@
-import type { OcrResult, OcrWord } from "./result";
+import { endsLine, type OcrResult, type OcrWord } from "./result";
 
 /**
  * OCR kelimelerinden görünmez, seçilebilir bir metin katmanı kurar. pdf.js metin katmanıyla aynı
@@ -23,13 +23,23 @@ function measure(text: string, fontSize: number): number {
   return measureCtx.measureText(text).width;
 }
 
+/** Görünmez satır/paragraf sonu: metin haritasında "\n" olur ve cümle orada biter. */
+function lineBreak(): HTMLElement {
+  const br = document.createElement("span");
+  br.className = "ocr-break";
+  br.textContent = "\n";
+  return br;
+}
+
 /** Katmanı (yeniden) doldurur; eklenen kelime sayısını döndürür. */
 export function renderOcrLayer(layer: HTMLElement, result: OcrResult, opts: LayerOptions): number {
   layer.replaceChildren();
   let count = 0;
   for (const lines of result.paragraphs) {
     let added = false;
-    for (const words of lines) {
+    for (const [lineIndex, words] of lines.entries()) {
+      // Başlık/etiket satırı bittiyse (bkz. endsLine) cümle bir sonraki satıra taşmasın.
+      if (lineIndex > 0 && added && endsLine(lines[lineIndex - 1], words)) layer.append(lineBreak());
       // Satırdaki tüm kelimeler satırın üst kenarını ve yüksekliğini paylaşır. Kelime kutuları tek tek
       // kullanılırsa "cheap" (aşağı uzanan p) ile "are" arasındaki fark punto değişimi sanılır ve cümle bölünür.
       const lineTop = Math.min(...words.map((w) => w.y));
@@ -52,12 +62,7 @@ export function renderOcrLayer(layer: HTMLElement, result: OcrResult, opts: Laye
       }
     }
     // Paragraf sonu: cümleler paragraflar arasında birleşmesin.
-    if (added) {
-      const br = document.createElement("span");
-      br.className = "ocr-break";
-      br.textContent = "\n";
-      layer.append(br);
-    }
+    if (added) layer.append(lineBreak());
   }
   return count;
 }

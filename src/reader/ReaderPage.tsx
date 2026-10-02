@@ -20,6 +20,7 @@ import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha2
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
 import { loadDocument } from "./pdfjs";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { ImageViewer } from "./ImageViewer";
 import { PdfViewer } from "./PdfViewer";
 import { ReflowViewer } from "./ReflowViewer";
@@ -376,6 +377,7 @@ export function ReaderPage({ profile, ref }: Props) {
               <div className="view-stack">
                 {/* Görünümler arasında geçince konum kaybolmasın diye ikisi de yerinde kalır. */}
                 <div className={t.view === "text" ? "view-layer" : "view-layer inactive"}>
+                  <ErrorBoundary label="Belge görüntülenemedi">
                   {t.content.kind === "pdf" ? (
                     <PdfViewer
                       pdf={t.content.pdf}
@@ -401,9 +403,11 @@ export function ReaderPage({ profile, ref }: Props) {
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                     />
                   )}
+                  </ErrorBoundary>
                 </div>
                 {t.original && (
                   <div className={t.view === "original" ? "view-layer" : "view-layer inactive"}>
+                    <ErrorBoundary label="Orijinal görünüm gösterilemedi">
                     <PdfViewer
                       pdf={t.original}
                       ocrKey={`${t.record.hash}:original`}
@@ -412,6 +416,7 @@ export function ReaderPage({ profile, ref }: Props) {
                       onPick={(pick, page) => handlePick(t, "original", pick, page)}
                       jump={t.jump?.view === "original" ? t.jump : undefined}
                     />
+                    </ErrorBoundary>
                   </div>
                 )}
               </div>

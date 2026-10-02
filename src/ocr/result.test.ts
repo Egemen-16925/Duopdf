@@ -42,6 +42,31 @@ describe("fromTesseract", () => {
     expect(ocrParagraphTexts(result)).toEqual(["Version control systems record changes.", "Figure 2"]);
   });
 
+  it("keeps heading and label lines separate but joins wrapped prose", () => {
+    const lines = (...rows: string[][]) =>
+      rows.map((words, i) => ({ words: words.map((text, j) => word(text, j * 60, i * 30)) }));
+    const diagram = fromTesseract(
+      {
+        blocks: [
+          {
+            paragraphs: [
+              { lines: lines(["Figure", "1:", "Git", "workflow"], ["Working", "directory"], ["Staging", "area"]) },
+              { lines: lines(["Developers", "should", "avoid"], ["holding", "large", "objects."], ["Then", "push."]) },
+            ],
+          },
+        ],
+      },
+      600,
+      600,
+    );
+    expect(ocrParagraphTexts(diagram)).toEqual([
+      "Figure 1: Git workflow",
+      "Working directory",
+      "Staging area",
+      "Developers should avoid holding large objects. Then push.",
+    ]);
+  });
+
   it("handles pages without blocks", () => {
     expect(fromTesseract({ blocks: null }, 10, 10).paragraphs).toEqual([]);
   });

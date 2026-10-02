@@ -1,7 +1,7 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { docxToSections } from "../formats/docx";
 import { epubToReflow } from "../formats/epub";
-import { pptxToSections } from "../formats/pptx";
+import { pptxToReflow } from "../formats/pptx";
 import { decodeText, textToSections } from "../formats/txt";
 import { imageMimeType, type DocFormat, type ReflowDoc } from "../formats/types";
 import { loadDocument } from "./pdfjs";
@@ -21,7 +21,9 @@ export type LoadedContent =
   | { kind: "reflow"; doc: ReflowDoc; noText: boolean }
   | { kind: "image"; image: LoadedImage; noText: boolean };
 
+/** Metin var mı? Resim varsa yazısı OCR ile geleceği için metin var sayılır. */
 function reflowHasText(doc: ReflowDoc): boolean {
+  if (doc.sections.some((s) => /<img\b/i.test(s.html))) return true;
   const text = doc.sections.map((s) => s.html.replace(/<[^>]*>/g, "")).join("");
   return text.replace(/\s/g, "").length >= 20;
 }
@@ -49,7 +51,7 @@ export async function loadContent(format: DocFormat, bytes: Uint8Array, name: st
   let doc: ReflowDoc;
   if (format === "epub") doc = await epubToReflow(bytes);
   else if (format === "docx") doc = { sections: await docxToSections(bytes, name), objectUrls: [] };
-  else if (format === "pptx") doc = { sections: await pptxToSections(bytes), objectUrls: [] };
+  else if (format === "pptx") doc = await pptxToReflow(bytes);
   else doc = { sections: textToSections(decodeText(bytes), name), objectUrls: [] };
   if (doc.sections.length === 0) doc.sections.push({ title: name, html: "" });
   return { kind: "reflow", doc, noText: !reflowHasText(doc) };

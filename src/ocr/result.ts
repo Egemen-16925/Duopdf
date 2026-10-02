@@ -64,17 +64,31 @@ export function fromTesseract(page: TesseractPage, width: number, height: number
   return { width, height, paragraphs };
 }
 
+/**
+ * Satır kendi başına mı (başlık, diyagram etiketi), yoksa cümle alt satırda mı sürüyor?
+ * Noktalamasız biten satırdan sonra büyük harfle başlayan satır gelirse ayrı satır sayılır;
+ * düz yazıda alt satır genelde küçük harfle sürer.
+ */
+export function endsLine(line: OcrWord[], next: OcrWord[] | undefined): boolean {
+  if (!next || line.length === 0 || next.length === 0) return true;
+  const last = line[line.length - 1].text;
+  return !/[.!?:;,\-–—(]$/.test(last) && /^\p{Lu}/u.test(next[0].text);
+}
+
 /** Paragrafları düz metne çevirir: satırlar birleştirilir, satır sonu tirelemesi düzeltilir. */
 export function ocrParagraphTexts(result: OcrResult): string[] {
-  return result.paragraphs
-    .map((lines) =>
-      lines
-        .map((words) => words.map((w) => w.text).join(" "))
-        .join("\n")
-        .replace(/(\p{L})-\n(\p{Ll})/gu, "$1$2")
-        .replace(/\n/g, " "),
-    )
-    .filter((text) => text.trim().length > 0);
+  const texts: string[] = [];
+  for (const lines of result.paragraphs) {
+    let current: string[] = [];
+    lines.forEach((words, i) => {
+      current.push(words.map((w) => w.text).join(" "));
+      if (endsLine(words, lines[i + 1])) {
+        texts.push(current.join("\n").replace(/(\p{L})-\n(\p{Ll})/gu, "$1$2").replace(/\n/g, " "));
+        current = [];
+      }
+    });
+  }
+  return texts.filter((text) => text.trim().length > 0);
 }
 
 export function ocrWordCount(result: OcrResult): number {
