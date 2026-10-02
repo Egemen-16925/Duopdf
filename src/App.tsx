@@ -49,29 +49,33 @@ function App() {
           </button>
         ))}
       </nav>
-      {/* Okuyucu sekme değişince kapanmasın diye hep bağlı kalır, yalnızca gizlenir. */}
-      <div className="reader-slot" hidden={page !== "reader"}>
-        <ReaderPage />
+      <div className="page-stack">
+        {/* Okuyucu sayfa değişince kapanmasın ve kaydırma konumu kaybolmasın diye yerinde kalır, yalnızca görünmez olur. */}
+        <div className={page === "reader" ? "page-layer" : "page-layer inactive"}>
+          <ReaderPage />
+        </div>
+        {page !== "reader" && (
+          <main className="content page-layer">
+            {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
+            {settings && page === "settings" && (
+              <SettingsPage
+                settings={settings}
+                onChange={updateSettings}
+                modelLists={modelLists}
+                onModelList={setModelList}
+              />
+            )}
+            {settings && page === "modelTest" && (
+              <ModelTestPage
+                settings={settings}
+                onChange={updateSettings}
+                modelLists={modelLists}
+                onModelList={setModelList}
+              />
+            )}
+          </main>
+        )}
       </div>
-      <main className="content" hidden={page === "reader"}>
-        {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
-        {settings && page === "settings" && (
-          <SettingsPage
-            settings={settings}
-            onChange={updateSettings}
-            modelLists={modelLists}
-            onModelList={setModelList}
-          />
-        )}
-        {settings && page === "modelTest" && (
-          <ModelTestPage
-            settings={settings}
-            onChange={updateSettings}
-            modelLists={modelLists}
-            onModelList={setModelList}
-          />
-        )}
-      </main>
     </div>
   );
 }

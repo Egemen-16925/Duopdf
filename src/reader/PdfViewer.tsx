@@ -1,4 +1,4 @@
-import "../pdf/pdfjs"; // pdf_viewer.mjs'ten önce yüklenmeli (globalThis.pdfjsLib)
+import "./pdfjs"; // pdf_viewer.mjs'ten önce yüklenmeli (globalThis.pdfjsLib)
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
@@ -74,8 +74,15 @@ export function PdfViewer({ pdf, initialPage, onPageChange }: Props) {
     };
     container.addEventListener("wheel", onWheel, { passive: false });
     container.addEventListener("click", onClick);
+    // Pencere boyutu değişince "sayfa genişliği" gibi hazır ayarlar yeniden hesaplansın.
+    const resizeObserver = new ResizeObserver(() => {
+      const value = viewer.currentScaleValue;
+      if (value === "page-width" || value === "page-fit" || value === "auto") viewer.currentScaleValue = value;
+    });
+    resizeObserver.observe(container);
 
     return () => {
+      resizeObserver.disconnect();
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("click", onClick);
       viewer.setDocument(null as unknown as PDFDocumentProxy);

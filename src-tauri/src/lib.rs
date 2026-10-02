@@ -1,16 +1,20 @@
 use std::path::Path;
 
-/// Kullanıcının seçtiği PDF'i ham bayt olarak döndürür (JSON'a çevirmeden).
-/// Yalnızca .pdf uzantılı dosyaları okur.
+/// Açılabilen belge uzantıları (ön yüzdeki src/formats/types.ts ile aynı tutulmalı).
+const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "epub", "docx", "pptx", "txt", "md"];
+
+/// Kullanıcının seçtiği belgeyi ham bayt olarak döndürür (JSON'a çevirmeden).
+/// Yalnızca desteklenen uzantılardaki dosyaları okur.
 #[tauri::command]
-fn read_pdf(path: String) -> Result<tauri::ipc::Response, String> {
+fn read_document(path: String) -> Result<tauri::ipc::Response, String> {
     let p = Path::new(&path);
-    let is_pdf = p
+    let supported = p
         .extension()
-        .map(|e| e.eq_ignore_ascii_case("pdf"))
+        .and_then(|e| e.to_str())
+        .map(|e| SUPPORTED_EXTENSIONS.iter().any(|s| e.eq_ignore_ascii_case(s)))
         .unwrap_or(false);
-    if !is_pdf {
-        return Err("Yalnızca PDF dosyaları açılabilir.".into());
+    if !supported {
+        return Err("Bu dosya türü desteklenmiyor.".into());
     }
     match std::fs::read(p) {
         Ok(bytes) => Ok(tauri::ipc::Response::new(bytes)),
@@ -26,7 +30,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![read_pdf])
+        .invoke_handler(tauri::generate_handler![read_document])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

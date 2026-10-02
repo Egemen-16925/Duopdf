@@ -1,42 +1,40 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
 import { db, type DocumentRecord } from "../db/db";
-import { recentDocuments, registerOpened, saveLastPage } from "../db/documents";
-import { fileName, FileNotFoundError, pickPdfFile, readPdfBytes, sha256Hex } from "../pdf/files";
-import { loadDocument } from "../pdf/pdfjs";
-import { looksScanned, sampleTextChars } from "../pdf/textCheck";
+import { clearRecent, hideFromRecent, recentDocuments, registerOpened, savePosition } from "../db/documents";
+import { formatFromPath } from "../formats/types";
+import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
+import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { PdfViewer } from "./PdfViewer";
+import { ReflowViewer } from "./ReflowViewer";
 
-interface OpenDoc {
+interface Tab {
   record: DocumentRecord;
-  pdf: PDFDocumentProxy;
-  scanned: boolean;
+  content: LoadedContent;
 }
 
 type Notice = { kind: "info" | "error"; text: string; missing?: DocumentRecord } | null;
 
-function openErrorText(e: unknown): string {
-  const name = (e as { name?: string })?.name;
-  if (name === "PasswordException") return "Bu PDF şifreli. Şifreli PDF'ler şimdilik desteklenmiyor.";
-  if (name === "InvalidPDFException") return "Bu dosya okunamadı: bozuk ya da geçerli bir PDF değil.";
-  return `PDF açılamadı: ${e instanceof Error ? e.message : String(e)}`;
-}
+const FORMAT_LABELS: Record<string, string> = { pdf: "PDF", epub: "EPUB", docx: "DOCX", pptx: "PPTX", txt: "TXT" };
 
 function formatDate(ms: number): string {
   return new Date(ms).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function ReaderPage() {
-  const [current, setCurrent] = useState<OpenDoc | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  /** Etkin sekmedeki belge kimliği; null ise belge listesi gösterilir. */
+  const [activeId, setActiveId] = useState<number | null>(null);
   const [recent, setRecent] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [dragging, setDragging] = useState(false);
-  const saveTimer = useRef<number | undefined>(undefined);
-  const pendingPage = useRef<{ id: number; page: number } | null>(null);
-  const currentRef = useRef(current);
-  currentRef.current = current;
+
+  const tabbarRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  /** Belge başına bekleyen konum kaydı (kaydırırken her olayda yazmamak için). */
+  const pending = useRef(new Map<number, { page: number; offset: number; timer: number }>());
 
   const refreshRecent = () => recentDocuments(db).then(setRecent);
 
@@ -44,32 +42,49 @@ export function ReaderPage() {
     refreshRecent();
   }, []);
 
-  /** Bekleyen "son sayfa" kaydını hemen yazar. */
-  function flushPageSave(): Promise<void> {
-    window.clearTimeout(saveTimer.current);
-    const pending = pendingPage.current;
-    pendingPage.current = null;
-    return pending ? saveLastPage(db, pending.id, pending.page) : Promise.resolve();
+  // Etkin sekme dar pencerede çubuğun dışında kalmasın.
+  useEffect(() => {
+    tabbarRef.current?.querySelector(".tab.active")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId, tabs.length]);
+
+  function flushPosition(id: number): Promise<void> {
+    const entry = pending.current.get(id);
+    if (!entry) return Promise.resolve();
+    window.clearTimeout(entry.timer);
+    pending.current.delete(id);
+    return savePosition(db, id, entry.page, entry.offset);
+  }
+
+  function handlePosition(id: number, page: number, offset = 0) {
+    const previous = pending.current.get(id);
+    if (previous) window.clearTimeout(previous.timer);
+    const timer = window.setTimeout(() => flushPosition(id), 400);
+    pending.current.set(id, { page, offset, timer });
   }
 
   async function openPath(path: string, expected?: DocumentRecord) {
+    const format = formatFromPath(path);
+    if (!format) {
+      setNotice({ kind: "error", text: `Bu dosya türü desteklenmiyor: ${fileName(path)}` });
+      return;
+    }
     setLoading(true);
     setNotice(null);
     try {
-      await flushPageSave();
-      const bytes = await readPdfBytes(path);
+      const bytes = await readDocumentBytes(path);
       // Hash'i önce al: pdf.js baytları worker'a aktarınca dizi boşalır.
       const hash = await sha256Hex(bytes);
-      const pdf = await loadDocument(bytes);
-      const record = await registerOpened(db, {
-        name: fileName(path),
-        filePath: path,
-        hash,
-        pageCount: pdf.numPages,
-      });
-      const scanned = looksScanned(await sampleTextChars(pdf));
-      await currentRef.current?.pdf.loadingTask.destroy();
-      setCurrent({ record, pdf, scanned });
+      const alreadyOpen = tabsRef.current.find((t) => t.record.hash === hash);
+      if (alreadyOpen) {
+        setActiveId(alreadyOpen.record.id);
+        return;
+      }
+      if (expected) await flushPosition(expected.id);
+      const name = fileName(path);
+      const content = await loadContent(format, bytes, name);
+      const record = await registerOpened(db, { name, filePath: path, hash, format, pageCount: pageCountOf(content) });
+      setTabs((prev) => [...prev, { record, content }]);
+      setActiveId(record.id);
       if (expected && expected.hash !== hash) {
         setNotice({
           kind: "info",
@@ -84,7 +99,7 @@ export function ReaderPage() {
           missing: expected,
         });
       } else {
-        setNotice({ kind: "error", text: openErrorText(e) });
+        setNotice({ kind: "error", text: `${fileName(path)}: ${openErrorText(e)}` });
       }
     } finally {
       setLoading(false);
@@ -92,30 +107,46 @@ export function ReaderPage() {
     }
   }
 
-  async function pickAndOpen(expected?: DocumentRecord) {
-    const path = await pickPdfFile();
-    if (path) await openPath(path, expected);
+  async function openPaths(paths: string[]) {
+    for (const path of paths) await openPath(path);
   }
 
-  async function close() {
-    await flushPageSave();
-    await current?.pdf.loadingTask.destroy();
-    setCurrent(null);
-    setNotice(null);
+  async function pickAndOpen(expected?: DocumentRecord) {
+    const paths = await pickDocumentFiles(!expected);
+    if (expected && paths[0]) await openPath(paths[0], expected);
+    else await openPaths(paths);
+  }
+
+  async function closeTab(id: number) {
+    const index = tabs.findIndex((t) => t.record.id === id);
+    if (index === -1) return;
+    await flushPosition(id);
+    const remaining = tabs.filter((t) => t.record.id !== id);
+    setTabs(remaining);
+    if (activeId === id) setActiveId(remaining[Math.min(index, remaining.length - 1)]?.record.id ?? null);
+    disposeContent(tabs[index].content);
     refreshRecent();
   }
 
-  function handlePageChange(page: number) {
-    const id = current?.record.id;
-    if (id == null) return;
-    pendingPage.current = { id, page };
-    window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(flushPageSave, 400);
+  async function removeFromRecent(id: number) {
+    await hideFromRecent(db, id);
+    refreshRecent();
   }
 
-  // Pencereye sürüklenip bırakılan ilk PDF'i aç.
-  const openPathRef = useRef(openPath);
-  openPathRef.current = openPath;
+  async function clearHistory() {
+    if (!confirm("Son açılanlar listesi temizlensin mi? Belgeler ve öğrenme verilerin silinmez.")) return;
+    await clearRecent(db);
+    refreshRecent();
+  }
+
+  function showLibrary() {
+    setActiveId(null);
+    refreshRecent();
+  }
+
+  // Pencereye sürüklenip bırakılan belgeleri sekmelerde aç.
+  const openPathsRef = useRef(openPaths);
+  openPathsRef.current = openPaths;
   useEffect(() => {
     const unlisten = getCurrentWebview().onDragDropEvent((event) => {
       const { type } = event.payload;
@@ -123,9 +154,12 @@ export function ReaderPage() {
       else if (type === "leave") setDragging(false);
       else if (type === "drop") {
         setDragging(false);
-        const pdfPath = event.payload.paths.find((p) => p.toLowerCase().endsWith(".pdf"));
-        if (pdfPath) openPathRef.current(pdfPath);
-        else setNotice({ kind: "error", text: "Yalnızca PDF dosyaları açılabilir." });
+        const paths = event.payload.paths;
+        const supported = paths.filter((p) => formatFromPath(p) != null);
+        if (supported.length > 0) openPathsRef.current(supported);
+        if (supported.length < paths.length) {
+          setNotice({ kind: "error", text: "Desteklenmeyen dosyalar atlandı. Açılabilenler: PDF, EPUB, DOCX, PPTX, TXT, MD." });
+        }
       }
     });
     return () => {
@@ -135,7 +169,37 @@ export function ReaderPage() {
 
   return (
     <div className="reader">
-      {dragging && <div className="drop-overlay">PDF'i açmak için bırak</div>}
+      {dragging && <div className="drop-overlay">Açmak için bırak</div>}
+
+      <div ref={tabbarRef} className="tabbar" role="tablist">
+        <button
+          className={activeId === null ? "tab home active" : "tab home"}
+          onClick={showLibrary}
+          role="tab"
+          aria-selected={activeId === null}
+        >
+          Belgeler
+        </button>
+        {tabs.map((t) => (
+          <div
+            key={t.record.id}
+            className={t.record.id === activeId ? "tab active" : "tab"}
+            role="tab"
+            aria-selected={t.record.id === activeId}
+            title={t.record.filePath}
+          >
+            <button className="tab-label" onClick={() => setActiveId(t.record.id)}>
+              {t.record.name}
+            </button>
+            <button className="tab-close" onClick={() => closeTab(t.record.id)} aria-label={`${t.record.name} kapat`}>
+              ×
+            </button>
+          </div>
+        ))}
+        <button className="tab add" onClick={() => pickAndOpen()} disabled={loading} title="Belge aç" aria-label="Belge aç">
+          +
+        </button>
+      </div>
 
       {notice && (
         <div className={`msg ${notice.kind} reader-notice`}>
@@ -151,62 +215,81 @@ export function ReaderPage() {
         </div>
       )}
 
-      {current ? (
-        <>
-          <div className="reader-header">
-            <button className="secondary" onClick={close}>
-              ← Belgeler
-            </button>
-            <strong className="doc-title" title={current.record.filePath}>
-              {current.record.name}
-            </strong>
-            <button className="secondary" onClick={() => pickAndOpen()} disabled={loading}>
-              Başka PDF aç
-            </button>
+      <div className="tab-stack">
+        {/* Sekmeler gizlenince kaydırma konumu kaybolmasın diye hepsi yerinde kalır, yalnızca görünmez olur. */}
+        {tabs.map((t) => (
+          <div key={t.record.id} className={t.record.id === activeId ? "tab-pane" : "tab-pane inactive"}>
+            {t.content.noText && (
+              <div className="msg error reader-notice">
+                {t.content.kind === "pdf"
+                  ? "Bu PDF taranmış görünüyor: sayfalarda seçilebilir metin yok. Kelime işaretleme ve çeviri bu belgede çalışmaz (OCR desteklenmiyor)."
+                  : "Bu belgede okunabilir metin bulunamadı."}
+              </div>
+            )}
+            {t.content.kind === "pdf" ? (
+              <PdfViewer
+                pdf={t.content.pdf}
+                initialPage={t.record.lastPage}
+                onPageChange={(page) => handlePosition(t.record.id, page)}
+              />
+            ) : (
+              <ReflowViewer
+                doc={t.content.doc}
+                initialSection={t.record.lastPage}
+                initialOffset={t.record.lastOffset}
+                onPositionChange={(section, offset) => handlePosition(t.record.id, section, offset)}
+              />
+            )}
           </div>
-          {current.scanned && (
-            <div className="msg error reader-notice">
-              Bu PDF taranmış görünüyor: sayfalarda seçilebilir metin yok. Kelime işaretleme ve çeviri bu belgede
-              çalışmaz (OCR desteklenmiyor).
-            </div>
-          )}
-          <PdfViewer
-            key={current.record.id}
-            pdf={current.pdf}
-            initialPage={current.record.lastPage}
-            onPageChange={handlePageChange}
-          />
-        </>
-      ) : (
-        <div className="library">
-          <div className="drop-zone">
-            <h1>Duopdf</h1>
-            <p className="muted">Bir PDF'i buraya sürükle ya da seç.</p>
-            <button onClick={() => pickAndOpen()} disabled={loading}>
-              {loading ? "Açılıyor…" : "PDF aç"}
-            </button>
-          </div>
+        ))}
 
-          {recent.length > 0 && (
-            <section className="recent">
-              <h2>Son açılanlar</h2>
-              <ul>
-                {recent.map((doc) => (
-                  <li key={doc.id}>
-                    <button className="recent-item" onClick={() => openPath(doc.filePath, doc)} disabled={loading}>
-                      <span className="recent-name">{doc.name}</span>
-                      <span className="muted">
-                        Sayfa {doc.lastPage} / {doc.pageCount} · {formatDate(doc.lastOpenedAt)}
-                      </span>
-                      <span className="muted recent-path">{doc.filePath}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-      )}
+        {activeId === null && (
+          <div className="tab-pane library">
+            <div className="drop-zone">
+              <h1>Duopdf</h1>
+              <p className="muted">Bir belgeyi buraya sürükle ya da seç. PDF, EPUB, DOCX, PPTX ve TXT açılabilir.</p>
+              <button onClick={() => pickAndOpen()} disabled={loading}>
+                {loading ? "Açılıyor…" : "Belge aç"}
+              </button>
+            </div>
+
+            {recent.length > 0 && (
+              <section className="recent">
+                <div className="recent-header">
+                  <h2>Son açılanlar</h2>
+                  <button className="secondary" onClick={clearHistory}>
+                    Geçmişi temizle
+                  </button>
+                </div>
+                <ul>
+                  {recent.map((doc) => (
+                    <li key={doc.id} className="recent-row">
+                      <button className="recent-item" onClick={() => openPath(doc.filePath, doc)} disabled={loading}>
+                        <span className="recent-name">
+                          {doc.name} <span className="badge">{FORMAT_LABELS[doc.format] ?? doc.format}</span>
+                        </span>
+                        <span className="muted">
+                          {doc.format === "pdf" ? "Sayfa" : "Bölüm"} {doc.lastPage} / {doc.pageCount} ·{" "}
+                          {formatDate(doc.lastOpenedAt)}
+                        </span>
+                        <span className="muted recent-path">{doc.filePath}</span>
+                      </button>
+                      <button
+                        className="secondary recent-remove"
+                        onClick={() => removeFromRecent(doc.id)}
+                        title="Listeden kaldır"
+                        aria-label={`${doc.name} listeden kaldır`}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
