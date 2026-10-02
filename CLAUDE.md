@@ -38,7 +38,7 @@ Her fazın sonunda sırayla:
 ## İlerleme durumu
 
 - [x] Faz 0 — Kurulum, iskelet, GitHub
-- [ ] Faz 1 — Ayarlar, API bağlantısı, model testi
+- [x] Faz 1 — Ayarlar, API bağlantısı, model testi
 - [ ] Faz 2 — PDF okuyucu
 - [ ] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
@@ -244,3 +244,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 
 - 2026-10-02: Tauri 2 + React + Dexie seçildi; sunucu yok, veriler cihazda.
 - 2026-10-02: Depo herkese açık `Egemen-16925/Duopdf` olarak açıldı; uygulama kimliği `com.egemen.duopdf`, Rust stable-msvc winget ile kuruldu.
+- 2026-10-02: Yapılandırılmış çıktı: önce `response_format: json_object`, 400/422 gelirse onsuz; şema her zaman istemde, yanıt zod ile doğrulanır, `generate` bir kez onarım dener.
+- 2026-10-02: NVIDIA `/v1/models` anahtarsız da döner; bağlantı testi anahtarı hızlı modele küçük bir istek atarak doğrular.
+- 2026-10-02: Katalogda `meta/llama-3.3-70b-instruct` yok; `deepseek-v4-flash` yerine `deepseek-v4.1-flash` var. Model seçimi test ekranıyla yapılacak.
+- 2026-10-02: Birim testleri için vitest eklendi; `aiClient` sahte HTTP yanıtlarıyla test ediliyor (`npm test`).

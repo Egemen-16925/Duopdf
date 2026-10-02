@@ -34,6 +34,8 @@ npm install
 npm run tauri dev
 ```
 
+Birim testleri: `npm test`
+
 ## Teknolojiler
 
 Tauri 2, React, Vite, TypeScript.
