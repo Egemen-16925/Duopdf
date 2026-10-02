@@ -30,14 +30,18 @@ export function renderOcrLayer(layer: HTMLElement, result: OcrResult, opts: Laye
   for (const lines of result.paragraphs) {
     let added = false;
     for (const words of lines) {
+      // Satırdaki tüm kelimeler satırın üst kenarını ve yüksekliğini paylaşır. Kelime kutuları tek tek
+      // kullanılırsa "cheap" (aşağı uzanan p) ile "are" arasındaki fark punto değişimi sanılır ve cümle bölünür.
+      const lineTop = Math.min(...words.map((w) => w.y));
+      const lineHeight = Math.max(...words.map((w) => w.y + w.h)) - lineTop;
       for (const word of words) {
         if (opts.skip?.(word)) continue;
-        const fontHeight = word.h * opts.unitHeight;
+        const fontHeight = lineHeight * opts.unitHeight;
         const width = word.w * opts.unitWidth;
         const span = document.createElement("span");
         span.textContent = word.text;
         span.style.left = `${word.x * 100}%`;
-        span.style.top = `${word.y * 100}%`;
+        span.style.top = `${lineTop * 100}%`;
         span.style.fontFamily = "sans-serif";
         span.style.setProperty("--font-height", `${fontHeight}px`);
         const natural = measure(word.text, fontHeight);

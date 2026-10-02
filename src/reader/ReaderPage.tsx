@@ -20,6 +20,7 @@ import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha2
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
 import { loadDocument } from "./pdfjs";
+import { ImageViewer } from "./ImageViewer";
 import { PdfViewer } from "./PdfViewer";
 import { ReflowViewer } from "./ReflowViewer";
 
@@ -46,7 +47,14 @@ interface Props {
 
 type Notice = { kind: "info" | "error"; text: string; missing?: DocumentRecord } | null;
 
-const FORMAT_LABELS: Record<string, string> = { pdf: "PDF", epub: "EPUB", docx: "DOCX", pptx: "PPTX", txt: "TXT" };
+const FORMAT_LABELS: Record<string, string> = {
+  pdf: "PDF",
+  epub: "EPUB",
+  docx: "DOCX",
+  pptx: "PPTX",
+  txt: "TXT",
+  image: "Resim",
+};
 
 function formatDate(ms: number): string {
   return new Date(ms).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
@@ -259,7 +267,7 @@ export function ReaderPage({ profile, ref }: Props) {
         const supported = paths.filter((p) => formatFromPath(p) != null);
         if (supported.length > 0) openPathsRef.current(supported);
         if (supported.length < paths.length) {
-          setNotice({ kind: "error", text: "Desteklenmeyen dosyalar atlandı. Açılabilenler: PDF, EPUB, DOCX, PPTX, TXT, MD." });
+          setNotice({ kind: "error", text: "Desteklenmeyen dosyalar atlandı. Açılabilenler: PDF, EPUB, DOCX, PPTX, TXT, MD ve resimler (PNG, JPG, WEBP, BMP)." });
         }
       }
     });
@@ -376,6 +384,12 @@ export function ReaderPage({ profile, ref }: Props) {
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                     />
+                  ) : t.content.kind === "image" ? (
+                    <ImageViewer
+                      image={t.content.image}
+                      onPick={(pick, page) => handlePick(t, "text", pick, page)}
+                      jump={t.jump?.view === "text" ? t.jump : undefined}
+                    />
                   ) : (
                     <ReflowViewer
                       doc={t.content.doc}
@@ -407,7 +421,7 @@ export function ReaderPage({ profile, ref }: Props) {
           <div className="tab-pane library">
             <div className="drop-zone">
               <h1>Duopdf</h1>
-              <p className="muted">Bir belgeyi buraya sürükle ya da seç. PDF, EPUB, DOCX, PPTX ve TXT açılabilir.</p>
+              <p className="muted">Bir belgeyi buraya sürükle ya da seç. PDF, EPUB, DOCX, PPTX, TXT ve resim (PNG, JPG) açılabilir.</p>
               <button onClick={() => pickAndOpen()} disabled={loading}>
                 {loading ? "Açılıyor…" : "Belge aç"}
               </button>
@@ -429,7 +443,8 @@ export function ReaderPage({ profile, ref }: Props) {
                           {doc.name} <span className="badge">{FORMAT_LABELS[doc.format] ?? doc.format}</span>
                         </span>
                         <span className="muted">
-                          {doc.format === "pdf" ? "Sayfa" : "Bölüm"} {doc.lastPage} / {doc.pageCount} ·{" "}
+                          {doc.format !== "image" &&
+                            `${doc.format === "pdf" ? "Sayfa" : "Bölüm"} ${doc.lastPage} / ${doc.pageCount} · `}
                           {formatDate(doc.lastOpenedAt)}
                         </span>
                         <span className="muted recent-path">{doc.filePath}</span>

@@ -3,7 +3,9 @@ mod office;
 use std::path::Path;
 
 /// Açılabilen belge uzantıları (ön yüzdeki src/formats/types.ts ile aynı tutulmalı).
-const SUPPORTED_EXTENSIONS: &[&str] = &["pdf", "epub", "docx", "pptx", "txt", "md"];
+const SUPPORTED_EXTENSIONS: &[&str] = &[
+    "pdf", "epub", "docx", "pptx", "txt", "md", "png", "jpg", "jpeg", "webp", "bmp",
+];
 
 /// Kullanıcının seçtiği belgeyi ham bayt olarak döndürür (JSON'a çevirmeden).
 /// Yalnızca desteklenen uzantılardaki dosyaları okur.

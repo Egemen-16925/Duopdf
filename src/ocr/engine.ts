@@ -35,6 +35,25 @@ async function sizeOf(image: OcrImage): Promise<{ width: number; height: number 
   return { width: image.width, height: image.height };
 }
 
+/** Bundan büyük görseller taramadan önce küçültülür (telefon fotoğrafları çok yavaş okunur). */
+const MAX_SIDE = 2400;
+
+/**
+ * Resim dosyasını taramaya hazırlar: EXIF yönünü uygular (img öğesiyle aynı görünsün)
+ * ve gerekirse küçültür. Kelime konumları oran olduğu için küçültme sonucu etkilemez.
+ */
+export async function prepareImage(blob: Blob): Promise<OffscreenCanvas> {
+  const bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const canvas = new OffscreenCanvas(Math.round(bitmap.width * scale), Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas;
+}
+
 /** Görseldeki yazıyı okur. İşler sıraya girer; biri hata verse de sıradakiler çalışır. */
 export function recognizeImage(image: OcrImage): Promise<OcrResult> {
   const job = queue.then(async () => {
