@@ -1042,3 +1042,52 @@ pre {
 .ocr-text p {
   margin: 0.3em 0;
 }
+
+/* "Yapay zekâ ile oku" paneli */
+
+.ai-read-panel {
+  position: fixed;
+  z-index: 40;
+  top: 110px;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+
+.ai-read-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.ai-read-head .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.ai-read-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.ai-read-text p {
+  margin: 0 0 6px;
+  line-height: 1.6;
+}
+
+.ocr-ai {
+  font-size: 1em;
+  text-transform: none;
+  letter-spacing: normal;
+}

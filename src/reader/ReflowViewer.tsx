@@ -15,6 +15,8 @@ interface Props {
   /** Kelimeye tıklanınca ya da öbek seçilince (bölüm numarasıyla, 1'den başlar). */
   onPick?(pick: Pick, section: number): void;
   jump?: Jump;
+  /** Metin görünümündeki bir görseli yapay zekâya okut (bölüm numarasıyla). */
+  onAiReadImage?(src: string, section: number): void;
 }
 
 const FONT_SIZES = [14, 16, 18, 20, 22, 26, 30];
@@ -29,13 +31,15 @@ function loadFontSize(): number {
   }
 }
 
-export function ReflowViewer({ doc, initialSection, initialOffset, onPositionChange, onPick, jump }: Props) {
+export function ReflowViewer({ doc, initialSection, initialOffset, onPositionChange, onPick, jump, onAiReadImage }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const onPositionRef = useRef(onPositionChange);
   onPositionRef.current = onPositionChange;
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
+  const onAiReadRef = useRef(onAiReadImage);
+  onAiReadRef.current = onAiReadImage;
   const position = useRef({ index: Math.max(initialSection - 1, 0), offset: initialOffset });
   const userScrolled = useRef(false);
   /** Programla ayarlanan son kaydırma konumu; bu konumdaki kaydırma olayı kullanıcıdan gelmez. */
@@ -58,10 +62,15 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
   // yazı eklenip düzen değişirse kullanıcı henüz kaydırmadıysa yeniden konumlan.
   useLayoutEffect(() => {
     const sections = sectionRefs.current.filter((el): el is HTMLElement => el != null);
-    const stop = replaceImagesWithText(sections, scrollRef.current!, (section) => {
-      trackRoot(section, "flow");
-      if (!userScrolled.current) restore();
-    });
+    const stop = replaceImagesWithText(
+      sections,
+      scrollRef.current!,
+      (section) => {
+        trackRoot(section, "flow");
+        if (!userScrolled.current) restore();
+      },
+      (src, section) => onAiReadRef.current?.(src, sectionRefs.current.indexOf(section) + 1),
+    );
     restore();
     return stop;
   }, [doc]);
@@ -117,7 +126,7 @@ export function ReflowViewer({ doc, initialSection, initialOffset, onPositionCha
       else if (href.startsWith("#")) el.querySelector(`[id="${CSS.escape(href.slice(1))}"]`)?.scrollIntoView();
     };
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button !== 0 || (e.target as HTMLElement).closest("a")) return;
+      if (e.button !== 0 || (e.target as HTMLElement).closest("a, button")) return;
       const result = pickFromPointer(e, ".reflow-section", "flow");
       if (!result) return;
       const index = sectionRefs.current.indexOf(result.root as HTMLElement);

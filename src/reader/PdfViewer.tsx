@@ -18,8 +18,8 @@ interface Props {
   jump?: Jump;
   /** Verilirse sayfalardaki görseller OCR ile okunur: "<belge hash>:<görünüm>". */
   ocrKey?: string;
-  /** Araç çubuğuna eklenecek düğmeler (ör. "Yapay zekâ ile oku"). */
-  extraTools?: React.ReactNode;
+  /** "Sayfayı yapay zekâ ile oku" düğmesine basılınca (geçerli sayfa). */
+  onAiRead?(page: number): void;
 }
 
 const ZOOM_PRESETS: { value: string; label: string }[] = [
@@ -32,7 +32,7 @@ const ZOOM_PRESETS: { value: string; label: string }[] = [
   { value: "2", label: "%200" },
 ];
 
-export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, extraTools }: Props) {
+export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, onAiRead }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pdfViewer = useRef<PDFViewer | null>(null);
@@ -118,7 +118,7 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     };
     // Kelimeye tıklama / öbek seçme
     const onMouseUp = (e: MouseEvent) => {
-      if (e.button !== 0 || (e.target as HTMLElement).closest("a")) return;
+      if (e.button !== 0 || (e.target as HTMLElement).closest("a, button")) return;
       const result = pickFromPointer(e, ".textLayer", "pdf");
       const page = Number(result?.root.closest<HTMLElement>(".page")?.dataset.pageNumber);
       if (result && page) onPickRef.current?.(result.pick, page);
@@ -220,7 +220,14 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
             <span className="ocr-status muted">Görsellerdeki yazılar okunuyor…</span>
           </>
         )}
-        {extraTools}
+        {onAiRead && (
+          <>
+            <span className="toolbar-sep" />
+            <button className="secondary" onClick={() => onAiRead(page)} title="Bu sayfadaki görsel yazıları yapay zekâya okut">
+              Sayfayı yapay zekâ ile oku
+            </button>
+          </>
+        )}
       </div>
       <div className="viewer-wrap">
         <div ref={containerRef} className="viewer-container">

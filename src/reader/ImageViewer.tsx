@@ -12,8 +12,8 @@ interface Props {
   image: LoadedImage;
   onPick?(pick: Pick, page: number): void;
   jump?: Jump;
-  /** Araç çubuğuna eklenecek düğmeler (ör. "Yapay zekâ ile oku"). */
-  extraTools?: React.ReactNode;
+  /** "Yapay zekâ ile oku" düğmesine basılınca. */
+  onAiRead?(): void;
 }
 
 export type OcrStatus = { state: "reading" } | { state: "done"; words: number } | { state: "error"; message: string };
@@ -26,7 +26,7 @@ export function ocrStatusText(status: OcrStatus): string {
 
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 
-export function ImageViewer({ image, onPick, jump, extraTools }: Props) {
+export function ImageViewer({ image, onPick, jump, onAiRead }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const onPickRef = useRef(onPick);
@@ -129,7 +129,11 @@ export function ImageViewer({ image, onPick, jump, extraTools }: Props) {
         </button>
         <span className="toolbar-sep" />
         <span className={status.state === "error" ? "ocr-status error-text" : "ocr-status muted"}>{ocrStatusText(status)}</span>
-        {extraTools}
+        {onAiRead && (
+          <button className="secondary" onClick={onAiRead} title="Yerel OCR okuyamadıysa görseli yapay zekâya okut">
+            Yapay zekâ ile oku
+          </button>
+        )}
       </div>
       <div ref={scrollRef} className="image-scroll">
         <div className="image-page" style={pageStyle}>

@@ -20,6 +20,9 @@ import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha2
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
 import { loadDocument } from "./pdfjs";
+import { AiReadPanel, type AiReadRequest } from "../ocr/AiReadPanel";
+import { imageBlobToDataUrl, imageSourceToBlob, pdfPageToDataUrl } from "../ocr/aiRead";
+import { imageKey } from "../ocr/cache";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { ImageViewer } from "./ImageViewer";
 import { PdfViewer } from "./PdfViewer";
@@ -72,6 +75,45 @@ export function ReaderPage({ profile, ref }: Props) {
   const [office, setOffice] = useState<OfficeAvailability>({ word: false, powerpoint: false });
   const [popup, setPopup] = useState<{ pick: Pick; location: PickLocation; documentHash: string } | null>(null);
   const closePopup = useCallback(() => setPopup(null), []);
+  /** "Yapay zekâ ile oku" paneli: hangi sekme/görünüm/sayfa için açıldığıyla. */
+  const [aiRead, setAiRead] = useState<{ tab: Tab; view: "text" | "original"; page: number; request: AiReadRequest } | null>(
+    null,
+  );
+
+  function readPdfPage(tab: Tab, view: "text" | "original", pdf: PDFDocumentProxy, page: number) {
+    setAiRead({
+      tab,
+      view,
+      page,
+      request: {
+        title: `${tab.record.name} · sayfa ${page}`,
+        key: async () => `pdf:${tab.record.hash}:${view}:${page}`,
+        image: () => pdfPageToDataUrl(pdf, page),
+      },
+    });
+  }
+
+  function readImageBlob(tab: Tab, blob: Blob) {
+    setAiRead({
+      tab,
+      view: "text",
+      page: 1,
+      request: { title: tab.record.name, key: () => imageKey(blob), image: () => imageBlobToDataUrl(blob) },
+    });
+  }
+
+  function readReflowImage(tab: Tab, src: string, section: number) {
+    setAiRead({
+      tab,
+      view: "text",
+      page: section,
+      request: {
+        title: `${tab.record.name} · görsel`,
+        key: async () => imageKey(await imageSourceToBlob(src)),
+        image: async () => imageBlobToDataUrl(await imageSourceToBlob(src)),
+      },
+    });
+  }
 
   const tabbarRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef(tabs);
@@ -280,6 +322,14 @@ export function ReaderPage({ profile, ref }: Props) {
   return (
     <div className="reader">
       {dragging && <div className="drop-overlay">Açmak için bırak</div>}
+      {aiRead && (
+        <AiReadPanel
+          request={aiRead.request}
+          profile={profile}
+          onPick={(pick) => handlePick(aiRead.tab, aiRead.view, pick, aiRead.page)}
+          onClose={() => setAiRead(null)}
+        />
+      )}
       {popup?.pick.kind === "word" && (
         <WordPopup
           pick={popup.pick}
@@ -386,12 +436,14 @@ export function ReaderPage({ profile, ref }: Props) {
                       onPageChange={(page) => handlePosition(t.record.id, page)}
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
+                      onAiRead={(page) => t.content.kind === "pdf" && readPdfPage(t, "text", t.content.pdf, page)}
                     />
                   ) : t.content.kind === "image" ? (
                     <ImageViewer
                       image={t.content.image}
                       onPick={(pick, page) => handlePick(t, "text", pick, page)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
+                      onAiRead={() => t.content.kind === "image" && readImageBlob(t, t.content.image.blob)}
                     />
                   ) : (
                     <ReflowViewer
@@ -401,6 +453,7 @@ export function ReaderPage({ profile, ref }: Props) {
                       onPositionChange={(section, offset) => handlePosition(t.record.id, section, offset)}
                       onPick={(pick, section) => handlePick(t, "text", pick, section)}
                       jump={t.jump?.view === "text" ? t.jump : undefined}
+                      onAiReadImage={(src, section) => readReflowImage(t, src, section)}
                     />
                   )}
                   </ErrorBoundary>
@@ -415,6 +468,7 @@ export function ReaderPage({ profile, ref }: Props) {
                       onPageChange={(page) => saveOriginalPage(db, t.record.id, page)}
                       onPick={(pick, page) => handlePick(t, "original", pick, page)}
                       jump={t.jump?.view === "original" ? t.jump : undefined}
+                      onAiRead={(page) => t.original && readPdfPage(t, "original", t.original, page)}
                     />
                     </ErrorBoundary>
                   </div>

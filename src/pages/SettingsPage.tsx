@@ -187,6 +187,20 @@ export function SettingsPage({ settings, onChange, modelLists, onModelList }: Pr
           />
         </label>
 
+        <label>
+          Görsel model (isteğe bağlı)
+          <input
+            list="model-options"
+            value={draft.visionModel}
+            placeholder="ör. meta/llama-3.2-90b-vision-instruct"
+            onChange={(e) => field("visionModel", e.target.value)}
+          />
+          <small>
+            Yerel OCR'ın okuyamadığı zor görseller için "Yapay zekâ ile oku" düğmesi bu modeli kullanır. Resim, seçtiğin
+            sağlayıcıya gönderilir.
+          </small>
+        </label>
+
         <div className="actions">
           <button onClick={save} disabled={!dirty || busy}>
             Kaydet

@@ -6,6 +6,7 @@ vi.mock("@tauri-apps/plugin-http", () => ({ fetch: (...args: unknown[]) => fetch
 import { chat, generate, listModels, runPrompt, testConnection } from "./aiClient";
 import { AiError } from "./errors";
 import { translateSentencePrompt } from "./prompts/translateSentence";
+import { readImageWithAi } from "./readImage";
 import type { ProviderProfile } from "../settings/providers";
 
 const profile: ProviderProfile = {
@@ -15,6 +16,7 @@ const profile: ProviderProfile = {
   apiKey: "test-key",
   fastModel: "fast/model",
   strongModel: "strong/model",
+  visionModel: "vision/model",
 };
 
 function response(status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -158,6 +160,22 @@ describe("runPrompt / generate", () => {
     await expect(
       runPrompt({ ...profile, fastModel: "" }, translateSentencePrompt, { sentence: "Hi." }),
     ).rejects.toMatchObject({ kind: "config" });
+  });
+});
+
+describe("readImageWithAi", () => {
+  it("sends the image as an OpenAI image_url part to the vision model", async () => {
+    fetchMock.mockResolvedValueOnce(completion("Figure 1: Git workflow\nWorking directory"));
+    const text = await readImageWithAi(profile, "data:image/jpeg;base64,AAAA");
+    expect(text).toBe("Figure 1: Git workflow\nWorking directory");
+    const body = sentBody(0);
+    expect(body.model).toBe("vision/model");
+    expect(body.messages[1].content[1]).toEqual({ type: "image_url", image_url: { url: "data:image/jpeg;base64,AAAA" } });
+  });
+
+  it("asks for a vision model when none is set", async () => {
+    await expect(readImageWithAi({ ...profile, visionModel: "" }, "data:x")).rejects.toMatchObject({ kind: "config" });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

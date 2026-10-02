@@ -11,6 +11,8 @@ export interface ProviderProfile {
   apiKey: string;
   fastModel: string;
   strongModel: string;
+  /** İsteğe bağlı: resimdeki yazıyı okuyabilen (görsel destekli) model. */
+  visionModel: string;
 }
 
 export interface ProviderSettings {
@@ -28,6 +30,7 @@ export function newProfile(partial: Partial<ProviderProfile> = {}): ProviderProf
     apiKey: "",
     fastModel: "",
     strongModel: "",
+    visionModel: "",
     ...partial,
   };
 }
@@ -55,7 +58,9 @@ export async function loadProviderSettings(): Promise<ProviderSettings> {
     return settings;
   }
   const activeExists = profiles.some((p) => p.id === activeProfileId);
-  return { profiles, activeProfileId: activeExists ? activeProfileId! : profiles[0].id };
+  // Sonradan eklenen alanlar eski kayıtlarda yoktur; boş değerle tamamla.
+  const complete = profiles.map((p) => ({ ...newProfile(), ...p }));
+  return { profiles: complete, activeProfileId: activeExists ? activeProfileId! : profiles[0].id };
 }
 
 export async function saveProviderSettings(settings: ProviderSettings): Promise<void> {
