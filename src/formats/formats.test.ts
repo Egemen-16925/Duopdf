@@ -116,6 +116,48 @@ describe("pptx", () => {
     expect(doc.objectUrls).toEqual(["blob:img1"]);
   });
 
+  it("reads SmartArt, chart titles, alternate content and speaker notes", async () => {
+    const ns =
+      'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:dgm="http://schemas.openxmlformats.org/drawingml/2006/diagram" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"';
+    const t = (text: string) => `<a:p><a:r><a:t>${text}</a:t></a:r></a:p>`;
+    const slideXml = `<p:sld ${ns}><p:cSld><p:spTree>
+      <p:graphicFrame><a:graphic><a:graphicData><dgm:relIds r:dm="rIdDm"/></a:graphicData></a:graphic></p:graphicFrame>
+      <p:graphicFrame><a:graphic><a:graphicData><c:chart r:id="rIdCh"/></a:graphicData></a:graphic></p:graphicFrame>
+      <mc:AlternateContent><mc:Choice Requires="a14"><p:sp><p:txBody>${t("Equation choice")}</p:txBody></p:sp></mc:Choice>
+        <mc:Fallback><p:sp><p:txBody>${t("Equation fallback")}</p:txBody></p:sp></mc:Fallback></mc:AlternateContent>
+    </p:spTree></p:cSld></p:sld>`;
+    const bytes = await zipBytes({
+      "ppt/presentation.xml": `<p:presentation ${ns}><p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst></p:presentation>`,
+      "ppt/_rels/presentation.xml.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="slides/slide1.xml"/></Relationships>`,
+      "ppt/slides/slide1.xml": slideXml,
+      "ppt/slides/_rels/slide1.xml.rels": `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdDm" Target="../diagrams/data1.xml"/><Relationship Id="rIdCh" Target="../charts/chart1.xml"/>
+        <Relationship Id="rIdN" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/></Relationships>`,
+      "ppt/diagrams/data1.xml": `<dgm:dataModel ${ns}><dgm:ptLst>
+        <dgm:pt type="doc"><dgm:t>${t("Document root")}</dgm:t></dgm:pt>
+        <dgm:pt><dgm:t>${t("Smart node alpha")}</dgm:t></dgm:pt>
+        <dgm:pt type="parTrans"><dgm:t>${t("Connector")}</dgm:t></dgm:pt>
+        <dgm:pt type="node"><dgm:t>${t("Smart node beta")}</dgm:t></dgm:pt></dgm:ptLst></dgm:dataModel>`,
+      "ppt/charts/chart1.xml": `<c:chartSpace ${ns}><c:chart><c:title><c:tx><c:rich>${t("Throughput over time")}</c:rich></c:tx></c:title></c:chart></c:chartSpace>`,
+      "ppt/notesSlides/notesSlide1.xml": `<p:notes ${ns}><p:cSld><p:spTree>
+        <p:sp><p:nvSpPr><p:nvPr><p:ph type="sldNum"/></p:nvPr></p:nvSpPr><p:txBody>${t("1")}</p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:nvPr><p:ph type="body"/></p:nvPr></p:nvSpPr><p:txBody>${t("Explain the race condition here.")}</p:txBody></p:sp>
+      </p:spTree></p:cSld></p:notes>`,
+    });
+    const { sections } = await pptxToReflow(bytes, () => "blob:x");
+    const text = sections[0].html.replace(/<[^>]+>/g, "|");
+    expect(text).toContain("Smart node alpha");
+    expect(text).toContain("Smart node beta");
+    expect(text).not.toContain("Document root");
+    expect(text).not.toContain("Connector");
+    expect(text).toContain("Throughput over time");
+    expect(text).toContain("Equation choice");
+    expect(text).not.toContain("Equation fallback");
+    expect(sections[0].html).toContain("Konuşmacı notu");
+    expect(text).toContain("Explain the race condition here.");
+    expect(text).not.toMatch(/\|1\|/);
+  });
+
   it("rejects a zip that is not a presentation", async () => {
     await expect(pptxToReflow(await zipBytes({ "a.txt": "x" }))).rejects.toThrow("PPTX");
   });

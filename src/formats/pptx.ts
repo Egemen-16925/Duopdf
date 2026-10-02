@@ -31,7 +31,7 @@ interface SlideContext {
   urls: Map<string, string>;
 }
 
-/** Slayttaki öğeleri ekrandaki sırasıyla dolaşır: metin kutuları, resimler, tablolar, gruplar. */
+/** Slayttaki öğeleri ekrandaki sırasıyla dolaşır: metin kutuları, resimler, tablolar, SmartArt, grafikler, gruplar. */
 async function walk(node: Element, ctx: SlideContext, out: { title: string; parts: string[] }) {
   for (const child of Array.from(node.children)) {
     const tag = child.tagName;
@@ -56,14 +56,57 @@ async function walk(node: Element, ctx: SlideContext, out: { title: string; part
       }
       out.parts.push(`<img src="${escapeHtml(url)}" alt="">`);
     } else if (tag === "p:graphicFrame") {
-      for (const cell of Array.from(child.getElementsByTagName("a:tc"))) {
-        const text = Array.from(cell.getElementsByTagName("a:p")).map(paragraphText).filter(Boolean).join(" ");
-        if (text) out.parts.push(`<p>${escapeHtml(text)}</p>`);
-      }
+      await graphicFrame(child, ctx, out);
     } else if (tag === "p:grpSp") {
       await walk(child, ctx, out);
+    } else if (tag === "mc:AlternateContent") {
+      // Yeni öğeler (denklem, 3B model vb.) bu kabukla gelir: önce asıl içerik, olmazsa yedeği.
+      const before = out.parts.length + (out.title ? 1 : 0);
+      const choice = child.getElementsByTagName("mc:Choice")[0];
+      if (choice) await walk(choice, ctx, out);
+      const fallback = child.getElementsByTagName("mc:Fallback")[0];
+      if (fallback && out.parts.length + (out.title ? 1 : 0) === before) await walk(fallback, ctx, out);
     }
   }
+}
+
+/** Tablo, SmartArt ve grafik çerçeveleri. SmartArt ve grafiğin yazıları ayrı XML dosyalarındadır. */
+async function graphicFrame(frame: Element, ctx: SlideContext, out: { parts: string[] }) {
+  const push = (text: string) => text && out.parts.push(`<p>${escapeHtml(text)}</p>`);
+  for (const cell of Array.from(frame.getElementsByTagName("a:tc"))) {
+    push(Array.from(cell.getElementsByTagName("a:p")).map(paragraphText).filter(Boolean).join(" "));
+  }
+  // SmartArt: veri dosyasındaki düğümlerin (dgm:pt) yazıları, sıralarıyla.
+  const dataId = frame.getElementsByTagName("dgm:relIds")[0]?.getAttribute("r:dm");
+  const dataTarget = dataId ? ctx.rels.get(dataId) : undefined;
+  if (dataTarget) {
+    const data = await readXml(ctx.zip, resolvePath(ctx.slidePath, dataTarget));
+    for (const pt of Array.from(data?.getElementsByTagName("dgm:pt") ?? [])) {
+      const type = pt.getAttribute("type") ?? "node";
+      if (type !== "node") continue;
+      push(Array.from(pt.getElementsByTagName("a:p")).map(paragraphText).filter(Boolean).join(" "));
+    }
+  }
+  // Grafik: başlık ve eksen başlıkları.
+  const chartId = frame.getElementsByTagName("c:chart")[0]?.getAttribute("r:id");
+  const chartTarget = chartId ? ctx.rels.get(chartId) : undefined;
+  if (chartTarget) {
+    const chart = await readXml(ctx.zip, resolvePath(ctx.slidePath, chartTarget));
+    for (const title of Array.from(chart?.getElementsByTagName("c:title") ?? [])) {
+      push(Array.from(title.getElementsByTagName("a:p")).map(paragraphText).filter(Boolean).join(" "));
+    }
+  }
+}
+
+/** Konuşmacı notunun gövde metni (slayt numarası gibi yer tutucular hariç). */
+async function speakerNotes(zip: JSZip, notesPath: string): Promise<string[]> {
+  const notes = await readXml(zip, notesPath);
+  const texts: string[] = [];
+  for (const sp of Array.from(notes?.getElementsByTagName("p:sp") ?? [])) {
+    if (sp.getElementsByTagName("p:ph")[0]?.getAttribute("type") !== "body") continue;
+    texts.push(...Array.from(sp.getElementsByTagName("a:p")).map(paragraphText).filter(Boolean));
+  }
+  return texts;
 }
 
 export async function pptxToReflow(bytes: Uint8Array, makeUrl: MakeUrl = defaultMakeUrl): Promise<ReflowDoc> {
@@ -89,6 +132,15 @@ export async function pptxToReflow(bytes: Uint8Array, makeUrl: MakeUrl = default
     const slideRels = await readXml(zip, relsPathFor(slidePath));
     const out = { title: "", parts: [] as string[] };
     await walk(tree, { zip, slidePath, rels: slideRels ? relTargets(slideRels) : new Map(), makeUrl, urls }, out);
+    const notesTarget = Array.from(slideRels?.getElementsByTagName("Relationship") ?? [])
+      .find((r) => r.getAttribute("Type")?.endsWith("/notesSlide"))
+      ?.getAttribute("Target");
+    const notes = notesTarget ? await speakerNotes(zip, resolvePath(slidePath, notesTarget)) : [];
+    if (notes.length > 0) {
+      out.parts.push(
+        `<div class="slide-notes"><span class="ocr-caption">Konuşmacı notu</span>${notes.map((n) => `<p>${escapeHtml(n)}</p>`).join("")}</div>`,
+      );
+    }
     const heading = `Slayt ${index + 1}${out.title ? `: ${out.title}` : ""}`;
     sections.push({ title: heading, html: `<h2>${escapeHtml(heading)}</h2>\n${out.parts.join("\n")}` });
   }

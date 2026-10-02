@@ -1091,3 +1091,13 @@ pre {
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* PPTX konuşmacı notu (metin görünümü) */
+
+.slide-notes {
+  margin-top: 1em;
+  padding: 6px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  font-size: 0.9em;
+}
