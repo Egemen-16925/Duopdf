@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { ModelTestPage } from "./pages/ModelTestPage";
+import { ReaderPage } from "./reader/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
-type Page = "home" | "settings" | "modelTest";
+type Page = "reader" | "settings" | "modelTest";
 
 const NAV: { id: Page; label: string }[] = [
-  { id: "home", label: "Okuyucu" },
+  { id: "reader", label: "Okuyucu" },
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
 
 function App() {
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>("reader");
   const [settings, setSettings] = useState<ProviderSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Profil kimliğine göre çekilmiş model listeleri (oturum boyunca saklanır).
@@ -48,14 +49,12 @@ function App() {
           </button>
         ))}
       </nav>
-      <main className="content">
+      {/* Okuyucu sekme değişince kapanmasın diye hep bağlı kalır, yalnızca gizlenir. */}
+      <div className="reader-slot" hidden={page !== "reader"}>
+        <ReaderPage />
+      </div>
+      <main className="content" hidden={page === "reader"}>
         {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
-        {page === "home" && (
-          <section className="placeholder">
-            <h1>Duopdf</h1>
-            <p>PDF okuyucu bir sonraki aşamada gelecek. Şimdilik Ayarlar'dan API bağlantını kur.</p>
-          </section>
-        )}
         {settings && page === "settings" && (
           <SettingsPage
             settings={settings}
