@@ -12,6 +12,7 @@ import {
 } from "../settings/providers";
 import { BackupSection } from "./BackupSection";
 import { ModelInput } from "./ModelInput";
+import { PenSection } from "./PenSection";
 
 interface Props {
   settings: ProviderSettings;
@@ -271,6 +272,8 @@ export function SettingsPage(props: Props) {
           {dirty && <p className="msg info">Kaydedilmemiş değişiklikler var. Testler formdaki değerlerle yapılır.</p>}
           {status && <p className={`msg ${status.kind}`}>{status.text}</p>}
         </section>
+
+        <PenSection />
 
         <BackupSection />
       </div>
