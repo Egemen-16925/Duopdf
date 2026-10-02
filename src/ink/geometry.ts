@@ -17,13 +17,12 @@ function round(v: number): number {
 }
 
 /**
- * Fare basınç bildirmez (0 ya da 0.5); kalemde basınç 0-1. Çizgi kalınlığına çarpan:
- * hafif dokunuş ince, bastırınca kalın.
+ * Noktaya kaydedilecek ağırlık (0-1). Kalemde gerçek basınç; fare ve parmak basınç bildirmez
+ * (0 ya da 0.5 gelir), onlar için orta değer. Çizerken kalınlık çarpanına çevrilir (render.ts).
  */
-export function pressureFactor(pressure: number, pointerType: string): number {
-  if (pointerType !== "pen") return 1;
-  const p = Math.min(Math.max(pressure, 0), 1);
-  return 0.35 + 1.3 * p;
+export function pointerWeight(pressure: number, pointerType: string): number {
+  if (pointerType !== "pen") return 0.5;
+  return Math.min(Math.max(pressure, 0), 1);
 }
 
 /**

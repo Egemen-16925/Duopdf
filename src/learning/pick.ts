@@ -73,24 +73,32 @@ function wordPick(map: TextMap, tokens: Token[], rect?: DOMRect): WordPick | nul
 export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextMode): { pick: Pick; root: Element } | null {
   const selection = window.getSelection();
   if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    const root = (range.startContainer.parentElement ?? null)?.closest(rootSelector);
-    if (!root || !root.contains(range.endContainer)) return null;
-    const map = buildTextMap(root, mode);
-    const start = offsetOf(map, range.startContainer, range.startOffset);
-    const end = offsetOf(map, range.endContainer, range.endOffset);
-    if (start == null || end == null || end <= start) return null;
-    const tokens = tokenize(map.text).filter((t) => t.end > start && t.start < end);
-    if (tokens.length === 0) return null;
-    const crossesSentence = sentenceAround(map.text, start, end).text !== sentenceAround(map.text, start).text;
-    const rect = range.getBoundingClientRect();
-    const pick = tokens.length <= MAX_WORDS && !crossesSentence ? wordPick(map, tokens, rect) : sentencePick(map, start, end, rect);
-    return pick ? { pick, root } : null;
+    return pickFromRange(selection.getRangeAt(0), rootSelector, mode);
   }
-
   const root = (e.target as Element | null)?.closest?.(rootSelector);
   if (!root) return null;
-  const caret = caretAt(e.clientX, e.clientY);
+  return pickAtPoint(e.clientX, e.clientY, root, mode, e.altKey);
+}
+
+/** Bir metin aralığından seçim: kısa ve tek cümle içindeyse kelime/öbek, değilse cümle(ler). */
+export function pickFromRange(range: Range, rootSelector: string, mode: TextMode): { pick: Pick; root: Element } | null {
+  const root = (range.startContainer.parentElement ?? null)?.closest(rootSelector);
+  if (!root || !root.contains(range.endContainer)) return null;
+  const map = buildTextMap(root, mode);
+  const start = offsetOf(map, range.startContainer, range.startOffset);
+  const end = offsetOf(map, range.endContainer, range.endOffset);
+  if (start == null || end == null || end <= start) return null;
+  const tokens = tokenize(map.text).filter((t) => t.end > start && t.start < end);
+  if (tokens.length === 0) return null;
+  const crossesSentence = sentenceAround(map.text, start, end).text !== sentenceAround(map.text, start).text;
+  const rect = range.getBoundingClientRect();
+  const pick = tokens.length <= MAX_WORDS && !crossesSentence ? wordPick(map, tokens, rect) : sentencePick(map, start, end, rect);
+  return pick ? { pick, root } : null;
+}
+
+/** Ekrandaki bir noktanın altındaki kelime (`sentence` ise o kelimenin cümlesi). */
+export function pickAtPoint(x: number, y: number, root: Element, mode: TextMode, sentence = false): { pick: Pick; root: Element } | null {
+  const caret = caretAt(x, y);
   if (!caret || !root.contains(caret.node)) return null;
   const map = buildTextMap(root, mode);
   const offset = offsetOf(map, caret.node, caret.offset);
@@ -100,15 +108,14 @@ export function pickFromPointer(e: MouseEvent, rootSelector: string, mode: TextM
   const tokenRect = rangeFor(map, token.start, token.end)?.getBoundingClientRect();
   // Kelimenin uzağındaki boşluğa tıklandıysa sayma.
   const pad = 3;
-  if (
-    !tokenRect ||
-    e.clientX < tokenRect.left - pad ||
-    e.clientX > tokenRect.right + pad ||
-    e.clientY < tokenRect.top - pad ||
-    e.clientY > tokenRect.bottom + pad
-  ) {
+  if (!tokenRect || x < tokenRect.left - pad || x > tokenRect.right + pad || y < tokenRect.top - pad || y > tokenRect.bottom + pad) {
     return null;
   }
-  const pick = e.altKey ? sentencePick(map, token.start, token.end) : wordPick(map, [token], tokenRect);
+  const pick = sentence ? sentencePick(map, token.start, token.end) : wordPick(map, [token], tokenRect);
   return pick ? { pick, root } : null;
+}
+
+/** Ekrandaki noktadaki metin konumu (parlak kalem için). */
+export function caretFromPoint(x: number, y: number): { node: Node; offset: number } | null {
+  return caretAt(x, y);
 }

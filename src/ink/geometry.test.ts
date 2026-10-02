@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { flatten, pressureFactor, simplify, strokeHits, toPoints, type Point } from "./geometry";
+import { flatten, pointerWeight, simplify, strokeHits, toPoints, type Point } from "./geometry";
+import { weightFactor } from "./render";
 
 describe("points", () => {
   it("round-trips flat arrays with rounding", () => {
@@ -14,16 +15,17 @@ describe("points", () => {
   });
 });
 
-describe("pressureFactor", () => {
-  it("ignores pressure for mouse and touch", () => {
-    expect(pressureFactor(0, "mouse")).toBe(1);
-    expect(pressureFactor(0.5, "touch")).toBe(1);
+describe("pointerWeight", () => {
+  it("uses a middle weight for mouse and touch", () => {
+    expect(pointerWeight(0, "mouse")).toBe(0.5);
+    expect(pointerWeight(1, "touch")).toBe(0.5);
   });
 
-  it("maps pen pressure to thin..thick", () => {
-    expect(pressureFactor(0, "pen")).toBeCloseTo(0.35);
-    expect(pressureFactor(1, "pen")).toBeCloseTo(1.65);
-    expect(pressureFactor(0.5, "pen")).toBeGreaterThan(pressureFactor(0.2, "pen"));
+  it("uses real pen pressure, clamped", () => {
+    expect(pointerWeight(0.2, "pen")).toBe(0.2);
+    expect(pointerWeight(1.4, "pen")).toBe(1);
+    expect(weightFactor(pointerWeight(0.9, "pen"))).toBeGreaterThan(weightFactor(pointerWeight(0.1, "pen")));
+    expect(weightFactor(0.5)).toBeCloseTo(1);
   });
 });
 
