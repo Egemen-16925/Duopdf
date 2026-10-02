@@ -1,11 +1,79 @@
+import { useEffect, useState } from "react";
 import "./App.css";
+import { ModelTestPage } from "./pages/ModelTestPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
+
+type Page = "home" | "settings" | "modelTest";
+
+const NAV: { id: Page; label: string }[] = [
+  { id: "home", label: "Okuyucu" },
+  { id: "settings", label: "Ayarlar" },
+  { id: "modelTest", label: "Model testi" },
+];
 
 function App() {
+  const [page, setPage] = useState<Page>("home");
+  const [settings, setSettings] = useState<ProviderSettings | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Profil kimliğine göre çekilmiş model listeleri (oturum boyunca saklanır).
+  const [modelLists, setModelLists] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    loadProviderSettings()
+      .then(setSettings)
+      .catch((e) => setLoadError(String(e)));
+  }, []);
+
+  async function updateSettings(next: ProviderSettings) {
+    await saveProviderSettings(next);
+    setSettings(next);
+  }
+
+  function setModelList(profileId: string, models: string[]) {
+    setModelLists((prev) => ({ ...prev, [profileId]: models }));
+  }
+
   return (
-    <main className="container">
-      <h1>Duopdf</h1>
-      <p>PDF okurken İngilizce öğren. Yakında burada.</p>
-    </main>
+    <div className="app">
+      <nav className="topbar">
+        <span className="brand">Duopdf</span>
+        {NAV.map((item) => (
+          <button
+            key={item.id}
+            className={page === item.id ? "nav-btn active" : "nav-btn"}
+            onClick={() => setPage(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <main className="content">
+        {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
+        {page === "home" && (
+          <section className="placeholder">
+            <h1>Duopdf</h1>
+            <p>PDF okuyucu bir sonraki aşamada gelecek. Şimdilik Ayarlar'dan API bağlantını kur.</p>
+          </section>
+        )}
+        {settings && page === "settings" && (
+          <SettingsPage
+            settings={settings}
+            onChange={updateSettings}
+            modelLists={modelLists}
+            onModelList={setModelList}
+          />
+        )}
+        {settings && page === "modelTest" && (
+          <ModelTestPage
+            settings={settings}
+            onChange={updateSettings}
+            modelLists={modelLists}
+            onModelList={setModelList}
+          />
+        )}
+      </main>
+    </div>
   );
 }
 
