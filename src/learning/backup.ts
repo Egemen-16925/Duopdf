@@ -22,10 +22,12 @@ const backupSchema = z.object({
     // Faz 4'te eklendi; eski yedeklerde yoksa boş sayılır.
     sentences: z.array(withId.extend({ key: z.string(), text: z.string() })).default([]),
     tombstones: z.array(z.object({ key: z.string(), deletedAt: z.number() })).default([]),
+    // Faz 4b'de eklendi.
+    strokes: z.array(z.object({ id: z.string(), docHash: z.string() }).passthrough()).default([]),
   }),
 });
 
-const TABLES = ["documents", "terms", "occurrences", "cache", "sentences", "tombstones"] as const;
+const TABLES = ["documents", "terms", "occurrences", "cache", "sentences", "tombstones", "strokes"] as const;
 
 export type BackupFile = z.infer<typeof backupSchema>;
 
@@ -34,6 +36,7 @@ export interface BackupSummary {
   terms: number;
   occurrences: number;
   sentences: number;
+  strokes: number;
 }
 
 export async function exportLearningData(db: DuopdfDB, now = new Date()): Promise<BackupFile> {
@@ -53,6 +56,7 @@ export function summarize(backup: BackupFile): BackupSummary {
     terms: backup.data.terms.length,
     occurrences: backup.data.occurrences.length,
     sentences: backup.data.sentences.length,
+    strokes: backup.data.strokes.length,
   };
 }
 

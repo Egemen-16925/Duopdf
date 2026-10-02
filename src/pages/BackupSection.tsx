@@ -7,7 +7,7 @@ import { refreshTerms } from "../learning/store";
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
 
 const describe = (s: BackupSummary) =>
-  `${s.terms} kelime, ${s.occurrences} geçiş, ${s.sentences} çeviri, ${s.documents} belge`;
+  `${s.terms} kelime, ${s.occurrences} geçiş, ${s.sentences} çeviri, ${s.strokes} çizim, ${s.documents} belge`;
 
 export function BackupSection() {
   const [status, setStatus] = useState<Status>(null);
@@ -55,7 +55,7 @@ export function BackupSection() {
     <section className="profile-form backup-section">
       <h2>Yedek</h2>
       <p className="muted">
-        Kelimelerin, geçtikleri cümleler, cümle çevirilerin, son açılan belgeler ve yapay zekâ önbelleği tek bir JSON dosyasına yedeklenir. API
+        Kelimelerin, geçtikleri cümleler, cümle çevirilerin, kalem çizimlerin, son açılan belgeler ve yapay zekâ önbelleği tek bir JSON dosyasına yedeklenir. API
         anahtarın yedeğe girmez. Geliştirme sürümü (<code>tauri dev</code>) ile kurulu uygulama verilerini ayrı tutar; aralarında
         taşımak için de yedeği kullan.
       </p>

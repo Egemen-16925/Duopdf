@@ -84,6 +84,26 @@ export interface TombstoneRecord {
   deletedAt: number;
 }
 
+/**
+ * Kalemle çizilmiş tek bir çizgi. Belge dosyasına yazılmaz; belgeye hash ile bağlanır.
+ * Koordinatlar sayfa boyutuna oranla (0-1) tutulur; yakınlaştırınca sayfayla ölçeklenir.
+ */
+export interface StrokeRecord {
+  /** Cihazdan bağımsız kimlik (UUID). */
+  id: string;
+  docHash: string;
+  /** DOCX/PPTX'te orijinal görünümün sayfaları farklıdır. */
+  view: "text" | "original";
+  page: number;
+  color: string;
+  /** Kalınlık, sayfa genişliğine oranla. */
+  width: number;
+  /** Düz dizi: x, y, basınç (0-1), x, y, basınç, … */
+  points: number[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** OCR sonucu (yeniden üretilebilir; yedeğe girmez). */
 export interface OcrRecord {
   /** "img:<görsel baytlarının SHA-256'sı>" ya da "page:<belge hash>:<görünüm>:<sayfa>". */
@@ -106,6 +126,7 @@ export class DuopdfDB extends Dexie {
   sentences!: EntityTable<SentenceRecord, "id">;
   tombstones!: EntityTable<TombstoneRecord, "key">;
   ocr!: EntityTable<OcrRecord, "key">;
+  strokes!: EntityTable<StrokeRecord, "id">;
 
   constructor(name = "duopdf") {
     super(name);
@@ -146,6 +167,16 @@ export class DuopdfDB extends Dexie {
       sentences: "++id, &key, updatedAt",
       tombstones: "&key",
       ocr: "&key",
+    });
+    this.version(6).stores({
+      documents: "++id, &hash, lastOpenedAt",
+      terms: "++id, &key, status, createdAt",
+      occurrences: "++id, termId, documentId",
+      cache: "&key",
+      sentences: "++id, &key, updatedAt",
+      tombstones: "&key",
+      ocr: "&key",
+      strokes: "&id, [docHash+view], updatedAt",
     });
   }
 }

@@ -41,7 +41,7 @@ describe("backup", () => {
     expect(await db.terms.count()).toBe(0);
 
     const summary = await importLearningData(db, parseBackup(json));
-    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1, sentences: 1 });
+    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1, sentences: 1, strokes: 0 });
     const [term] = await db.terms.toArray();
     expect(term).toMatchObject({ lemma: "run", meaning: "koşmak", status: "unknown" });
     const [occ] = await db.occurrences.toArray();
