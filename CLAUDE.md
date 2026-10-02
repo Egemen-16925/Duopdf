@@ -40,8 +40,10 @@ Her fazın sonunda sırayla:
 - [x] Faz 0 — Kurulum, iskelet, GitHub
 - [x] Faz 1 — Ayarlar, API bağlantısı, model testi
 - [x] Faz 2 — PDF okuyucu
+- [ ] Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
 - [ ] Faz 3 — Kelime işaretleme
 - [ ] Faz 4 — Cümle çevirisi
+- [ ] Faz 4b — Kalemle not alma
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
@@ -172,6 +174,15 @@ Her fazın sonunda "Faz kapanışı" adımlarını uygula.
 
 **Egemen'in testi:** Gerçek bir ders PDF'i aç. Metin seçilebiliyor mu, seçim doğru yere mi denk geliyor? Uzun PDF'te kaydırma akıcı mı? Kapatıp açınca aynı sayfadan devam ediyor mu? Çift sütunlu bir PDF de dene.
 
+### Faz 2b — Diğer formatlar, sekmeler, geçmişi temizleme
+
+- TXT, EPUB, DOCX ve PPTX açma. PDF dışındaki formatlar akan metin görünümünde gösterilir (sayfa düzeni korunmaz); PPTX slayt slayt metin olarak. Kelime işaretleme ve çeviri (Faz 3-4) her iki görünümde de çalışacak şekilde yazılır.
+- Belge içeriği güvenli hâle getirilir (script vb. temizlenir); bağlantılar uygulamanın içinde gezinmez.
+- Birden çok belge uygulama içinde sekmelerde açılır; her sekme kendi konumunu hatırlar.
+- Son açılanlardan tek belge kaldırma ve "geçmişi temizle". Yalnızca liste temizlenir; öğrenme verisi silinmez.
+
+**Egemen'in testi:** Her formattan gerçek bir dosya aç; metin düzgün görünüyor mu? Kapatıp açınca aynı yerden devam ediyor mu? Üç belgeyi sekmelerde aç, aralarında geç: konumlar korunuyor mu? Geçmişi temizle: liste boşalıyor mu?
+
 ### Faz 3 — Kelime işaretleme
 
 - Kelimeye tıklayınca küçük bir pencere: cümle içindeki anlamı (hızlı model), kök hâli, "bilmiyorum / az biliyorum / biliyorum" düğmeleri.
@@ -190,6 +201,16 @@ Her fazın sonunda "Faz kapanışı" adımlarını uygula.
 - Çeviri önbelleği ve "yeniden çevir" düğmesi.
 
 **Egemen'in testi:** Farklı sayfalardan 10 cümle çevir; cümle sınırları doğru mu (yarım cümle, iki cümle birleşmesi var mı)? Aynı cümleyi ikinci kez istediğinde anında geliyor mu? İnterneti kapat: önbellekteki çeviri hâlâ görünüyor mu?
+
+### Faz 4b — Kalemle not alma
+
+- Belge üzerine serbest çizim: kaleme basınç duyarlı (Pointer Events `pressure`), renk ve kalınlık, silgi.
+- Geri al / yinele (Ctrl+Z / Ctrl+Y ve düğmeler).
+- Çizimler belge dosyasına yazılmaz; öğrenme verisinin yanında (Dexie) belge hash'ine bağlı saklanır ve yedeğe girer.
+- Notları dışa aktarma (biçim fazın başında Egemen'le netleştirilecek).
+- Aynı kod Android'de (Faz 9) dokunmatik kalemle çalışacak şekilde yazılır.
+
+**Egemen'in testi:** Kalemle veya fareyle birkaç sayfaya çiz, sil, geri al; uygulamayı kapatıp aç: çizimler yerinde mi? Yakınlaştırınca çizim sayfayla birlikte ölçekleniyor mu? Dışa aktarılan dosya işe yarıyor mu?
 
 ### Faz 5 — Çoktan seçmeli sınav
 
@@ -253,3 +274,5 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: PDF, Rust `read_pdf` komutuyla ham bayt olarak okunur (fs eklentisi ve geniş dosya izni yok); görüntüleme pdf.js `PDFViewer` bileşeniyle.
 - 2026-10-02: pdfjs-dist 6 kullanılıyor: belge `loadingTask.destroy()` ile kapanır, yazı tipi/CMap/wasm dosyaları derlemede `public/pdfjs/`'e kopyalanır.
 - 2026-10-02: Taranmış PDF tespiti: ilk 5 sayfada toplam 20'den az metin karakteri.
+- 2026-10-02: Seçilen modeller: hızlı `openai/gpt-oss-20b`, güçlü `nvidia/nemotron-3-super-120b-a12b` (Egemen'in testleri).
+- 2026-10-02: Egemen'in isteğiyle Faz 2b (diğer formatlar, sekmeler, geçmiş temizleme) ve Faz 4b (kalemle not alma) eklendi. Formatlar Faz 3'ten önce, çünkü işaretleme ve çeviri baştan tüm formatlarda çalışmalı.
