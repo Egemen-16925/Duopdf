@@ -48,6 +48,7 @@ Her fazın sonunda sırayla:
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
+- [ ] Faz 7b — Bulut eşitleme (Google Drive)
 - [ ] Faz 8 — Paketleme ve GitHub Release
 - [ ] Faz 9 — Android (isteğe bağlı)
 
@@ -72,6 +73,13 @@ Kullanıcı API anahtarını, sağlayıcıyı veya modeli değiştirdiğinde hi�
 - Sağlayıcı profilleri (`ad`, `baseUrl`, `apiKey`, `hızlıModel`, `güçlüModel`) ayrı bir depoda durur. Birden çok profil kaydedilebilir, aralarında geçilebilir.
 - Önbellek anahtarında sağlayıcı veya model adı bulunmaz. Kötü bir çeviri için "yeniden çevir" düğmesi vardır.
 - Dışa aktarılan yedek dosyasına API anahtarı yazılmaz.
+
+### Eşitlemeye hazır veri (Faz 7b için baştan uyulacak kural)
+
+- Her öğrenme kaydı cihazlar arasında taşınabilir, kararlı bir anahtarla tanınır (belge: hash, terim: key, geçiş: terim + belge + cümle). Sayısal `id`'ler cihaza özeldir, eşitlemede kullanılmaz.
+- Her tabloda `updatedAt` olur; aynı kayıt iki cihazda değiştiyse yenisi kazanır.
+- Silme, `tombstones` tablosuna iz bırakır; böylece bir cihazda silinen kayıt diğerinden geri gelmez.
+- Cihaza özel alanlar (dosya yolu, son açılma, son sayfa) eşitlenmez ya da ayrı tutulur. API anahtarı ve belge dosyalarının kendisi asla eşitlenmez.
 
 ### Bilinen tuzaklar
 
@@ -250,6 +258,16 @@ Her fazın sonunda "Faz kapanışı" adımlarını uygula.
 
 **Egemen'in testi:** Uygulamayı bir ders çalışma oturumu boyunca gerçekten kullan; takıldığın her şeyi listele.
 
+### Faz 7b — Bulut eşitleme (Google Drive)
+
+- Google Drive'ın gizli uygulama klasörü (`appDataFolder`, `drive.appdata` kapsamı); OAuth 2 + PKCE. Sunucu yok; her kullanıcı kendi Drive'ını kullanır.
+- Egemen bir kez Google Cloud'da ücretsiz proje açıp OAuth istemci kimliği alır (Windows ve Android için); adımları fazın başında birlikte yapılır. İstemci gizli anahtarı repoya girmez.
+- Kayıt kayıt birleştirme (yukarıdaki "Eşitlemeye hazır veri" kuralı); yalnızca öğrenme verisi gider, belge dosyaları ve API anahtarı gitmez.
+- Otomatik: açılışta, kapanırken ve çalışırken birkaç dakikada bir; ayrıca "Şimdi eşitle" düğmesi ve son eşitleme zamanı/hata durumu.
+- Drive bağlantısını kesme ve buluttaki veriyi silme seçeneği.
+
+**Egemen'in testi:** İki cihazda (ya da geliştirme sürümü + kurulu sürüm) farklı kelimeler işaretle, eşitle: ikisinde de hepsi var mı? Birinde sil, eşitle: diğerinden de silindi mi? İnternet yokken çalış, sonra bağlan: kayıp var mı?
+
 ### Faz 8 — Paketleme ve GitHub Release
 
 - Windows kurulum dosyasını üret (`npm run tauri build`).
@@ -298,3 +316,5 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: Yedek: belgeler, terimler, geçişler ve yapay zekâ önbelleği tek JSON; içe aktarma mevcut veriyi tek işlemde değiştirir. API anahtarı yedeğe girmez (testle doğrulanıyor).
 - 2026-10-02: pdf.js görüntüleyicisinde `box-sizing: content-box` zorunlu; aksi hâlde metin katmanı tuvalden büyük olur ve seçim sayfanın altına doğru kayar.
 - 2026-10-02: Egemen'in isteğiyle Faz 4c (görsellerden metin, OCR) eklendi: yerel Tesseract.js + isteğe bağlı görsel model yedeği. Python betiği tablette çalışmadığı ve kurulum gerektirdiği için elendi; API tek başına kelime konumu vermediği için temel yöntem olamaz.
+- 2026-10-02: Faz 3 Egemen tarafından test edildi (AI anlamı, tıklama, durum kaydı, yedek dışa/içe aktarma çalışıyor).
+- 2026-10-02: Egemen'in isteğiyle Faz 7b (Google Drive ile otomatik eşitleme) eklendi. VPS/kendi sunucusu "sunucu yok" ilkesine ters olduğu için elendi. Yeni tablolar baştan `updatedAt` + silme izi ile tasarlanacak.
