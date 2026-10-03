@@ -74,8 +74,8 @@ function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
     <section className="profile-form">
       <h2>Modeller</h2>
       <p className="muted">
-        Her rol farklı bir sağlayıcıdan (farklı API anahtarıyla) çalışabilir. Yedek seçilirse, istek sınırı aşıldığında (429)
-        beklemeden yedeğe geçilir.
+        Her rol farklı bir sağlayıcıdan (farklı API anahtarıyla) çalışabilir. Bir istek hata verirse (istek sınırı, zaman aşımı,
+        sunucu hatası, bozuk yanıt) yedekle bir kez daha denenir. Yedek seçilmezse hızlı ve güçlü model birbirinin yedeği olur.
       </p>
       {(Object.keys(ROLE_LABELS) as ModelRole[]).map((role) => {
         const profile = settings.profiles.find((p) => p.id === roles[role].profileId);
@@ -112,7 +112,7 @@ function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
                 }
                 aria-label={`${ROLE_LABELS[role]} yedek sağlayıcısı`}
               >
-                <option value="">Yedek yok</option>
+                <option value="">{role === "vision" ? "Yedek yok" : "Yedek: diğer model (otomatik)"}</option>
                 {settings.profiles.map((p) => (
                   <option key={p.id} value={p.id}>
                     Yedek: {p.name}

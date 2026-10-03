@@ -112,6 +112,16 @@ describe("fallback targets", () => {
     expect(targetFor(settings, "vision")!.fallback).toBeUndefined();
   });
 
+  it("uses the other text role as fallback when none is chosen", () => {
+    const s: ProviderSettings = {
+      profiles: [nvidia, router],
+      roles: { fast: { profileId: "a", model: "f" }, strong: { profileId: "b", model: "s" }, vision: { profileId: "a", model: "v" } },
+    };
+    expect(targetFor(s, "fast")!.fallback).toMatchObject({ model: "s", profile: { id: "b" } });
+    expect(targetFor(s, "strong")!.fallback).toMatchObject({ model: "f", profile: { id: "a" } });
+    expect(targetFor(s, "vision")!.fallback).toBeUndefined();
+  });
+
   it("keeps stored fallbacks only for existing providers and clears them when the provider is removed", () => {
     const s = normalizeSettings([nvidia, router], {
       fast: { profileId: "a", model: "m1", fallback: { profileId: "b", model: "m2" } },

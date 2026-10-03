@@ -227,7 +227,7 @@ describe("listModels / testConnection", () => {
   });
 });
 
-describe("fallback on rate limit", () => {
+describe("fallback model", () => {
   const backupProfile: ProviderProfile = { id: "p2", name: "Yedek", baseUrl: "https://backup.test/v1", apiKey: "k2" };
   const withBackup = { profile, model: "fast/model", fallback: { profile: backupProfile, model: "backup/model" } };
 
@@ -242,11 +242,26 @@ describe("fallback on rate limit", () => {
     expect(sentBody(1).model).toBe("backup/model");
   });
 
-  it("does not switch on other errors", async () => {
-    fetchMock.mockResolvedValueOnce(response(401, { error: { message: "bad key" } }));
+  it("also switches on other errors (server error, invalid answer)", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(500, "boom"))
+      .mockResolvedValueOnce(completion(JSON.stringify({ ceviri: "Yedekten", dilbilgisiNotu: "" })));
+    expect((await generate(withBackup, translateSentencePrompt, { sentence: "Hi." })).ceviri).toBe("Yedekten");
+
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce(completion("not json"))
+      .mockResolvedValueOnce(completion("still not json"))
+      .mockResolvedValueOnce(completion(JSON.stringify({ ceviri: "Yedekten 2", dilbilgisiNotu: "" })));
+    expect((await generate(withBackup, translateSentencePrompt, { sentence: "Hi." })).ceviri).toBe("Yedekten 2");
+    expect(fetchMock.mock.calls[2][0]).toBe("https://backup.test/v1/chat/completions");
+  });
+
+  it("reports the fallback's error when both fail", async () => {
+    fetchMock.mockResolvedValueOnce(response(500, "boom")).mockResolvedValueOnce(response(401, { error: { message: "bad key" } }));
     const err = await generate(withBackup, translateSentencePrompt, { sentence: "Hi." }).catch((e) => e);
     expect(err.kind).toBe("auth");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("uses the fallback for image reading too", async () => {

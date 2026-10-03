@@ -150,20 +150,26 @@ export async function runPrompt<I, O>(
   target: AiTarget,
   template: PromptTemplate<I, O>,
   input: I,
-  opts: { repair?: boolean; retries?: number } = {},
+  opts: { repair?: boolean } & AttemptOptions = {},
 ): Promise<PromptRun<O>> {
   const { profile, model } = target;
   const messages = template.build(input);
-  const first = await chat(profile, { model, messages, jsonMode: true, retries: opts.retries });
+  const common = {
+    model,
+    jsonMode: true,
+    retries: opts.retries,
+    timeoutMs: opts.timeoutMs,
+    temperature: template.temperature,
+    maxTokens: template.maxTokens,
+  };
+  const first = await chat(profile, { ...common, messages });
   const checked = validate(template.schema, first.text);
   if (checked.data !== undefined || !opts.repair) {
     return { ...first, data: checked.data, validationError: checked.error };
   }
 
   const second = await chat(profile, {
-    model,
-    jsonMode: true,
-    retries: opts.retries,
+    ...common,
     messages: [
       ...messages,
       { role: "assistant", content: first.text },
@@ -183,27 +189,39 @@ export async function runPrompt<I, O>(
   };
 }
 
+export interface AttemptOptions {
+  /** 429'da kaç kez bekleyip yeniden denensin. */
+  retries?: number;
+  timeoutMs?: number;
+}
+
+/** Yedek varken asıl modeli bundan uzun bekleme; yedeğe geç. */
+const PRIMARY_TIMEOUT_WITH_FALLBACK_MS = 45_000;
+
 /**
- * İsteği hedefe gönderir; hedefin yedeği varsa ve istek sınırı (429) aşıldıysa beklemeden
- * yedeğe geçer. Yedek yoksa 429'da birkaç kez bekleyip yeniden dener.
+ * İsteği hedefe gönderir; hata olursa (istek sınırı, zaman aşımı, sunucu hatası, geçersiz yanıt…)
+ * ve hedefin yedeği varsa yedekle bir kez daha dener. Yedek varken asıl model 429'da beklenmez.
  */
-export async function withFallback<T>(target: AiTarget, run: (target: AiTarget, retries?: number) => Promise<T>): Promise<T> {
-  if (!target.fallback) return run(target);
+export async function withFallback<T>(target: AiTarget, run: (target: AiTarget, opts: AttemptOptions) => Promise<T>): Promise<T> {
+  if (!target.fallback) return run(target, {});
   try {
-    return await run(target, 0);
+    return await run(target, { retries: 0, timeoutMs: PRIMARY_TIMEOUT_WITH_FALLBACK_MS });
   } catch (e) {
-    if (e instanceof AiError && e.kind === "rateLimit") return run(target.fallback);
+    // Ayar eksikliği (model seçilmemiş vb.) yedekle düzelmez; gerisinde yedeği dene.
+    if (e instanceof AiError && e.kind !== "config") return run(target.fallback, {});
     throw e;
   }
 }
 
-/** Şablonu çalıştırır; geçerli veri gelmezse anlaşılır bir AiError fırlatır. */
+/** Şablonu çalıştırır; geçerli veri gelmezse anlaşılır bir AiError fırlatır (yedek model de denenir). */
 export async function generate<I, O>(target: AiTarget, template: PromptTemplate<I, O>, input: I): Promise<O> {
-  const run = await withFallback(target, (t, retries) => runPrompt(t, template, input, { repair: true, retries }));
-  if (run.data === undefined) {
-    throw new AiError("badResponse", "Model geçerli bir yanıt üretemedi. Tekrar dene veya başka model seç.", run.status, run.validationError);
-  }
-  return run.data;
+  return withFallback(target, async (t, opts) => {
+    const run = await runPrompt(t, template, input, { repair: true, ...opts });
+    if (run.data === undefined) {
+      throw new AiError("badResponse", "Model geçerli bir yanıt üretemedi. Tekrar dene veya başka model seç.", run.status, run.validationError);
+    }
+    return run.data;
+  });
 }
 
 export async function listModels(profile: ProviderProfile): Promise<string[]> {

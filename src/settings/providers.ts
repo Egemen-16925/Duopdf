@@ -122,9 +122,11 @@ export function targetFor(settings: ProviderSettings, role: ModelRole): AiTarget
   const assignment = settings.roles[role];
   const primary = resolve(settings, assignment);
   if (!primary) return null;
-  const fallback = resolve(settings, assignment.fallback);
-  // Yedek asıl hedefle aynıysa işe yaramaz.
-  if (fallback && !(fallback.profile.id === primary.profile.id && fallback.model === primary.model)) primary.fallback = fallback;
+  const same = (t: AiTarget | null) => !!t && t.profile.id === primary.profile.id && t.model === primary.model;
+  let fallback = resolve(settings, assignment.fallback);
+  // Yedek seçilmemişse hızlı ve güçlü model birbirinin yedeğidir (görsel modelin yalnızca seçilen yedeği olur).
+  if (!fallback || same(fallback)) fallback = role === "vision" ? null : resolve(settings, settings.roles[role === "fast" ? "strong" : "fast"]);
+  if (fallback && !same(fallback)) primary.fallback = fallback;
   return primary;
 }
 

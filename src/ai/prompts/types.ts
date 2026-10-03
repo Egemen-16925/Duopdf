@@ -17,5 +17,9 @@ export interface PromptTemplate<Input, Output> {
   version: number;
   role: "fast" | "strong";
   schema: z.ZodType<Output>;
+  /** Çeşitlilik gereken istemlerde daha yüksek (varsayılan 0.2). */
+  temperature?: number;
+  /** Uzun JSON ya da düşünme çıktısı veren modeller için (varsayılan 1024). */
+  maxTokens?: number;
   build(input: Input): ChatMessage[];
 }
