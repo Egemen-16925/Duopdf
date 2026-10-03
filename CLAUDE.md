@@ -49,7 +49,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [x] Faz 7 — İstatistik, sesli okuma, son rötuşlar
 - [x] Faz 7b — Bulut eşitleme (Google Drive)
-- [ ] Faz 8 — Paketleme ve GitHub Release
+- [x] Faz 8 — Paketleme ve GitHub Release
 - [ ] Faz 9 — Android (isteğe bağlı)
 
 ## Teknik kararlar
@@ -366,3 +366,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-03: Google Drive eşitlemesi: masaüstü OAuth istemcisi (Egemen kendi Google Cloud projesinde oluşturur, kimlik ve gizli anahtar Ayarlar'dan girilir, DPAPI ile şifreli `sync.json`'da), PKCE + 127.0.0.1 loopback (Rust `oauth_listen`/`oauth_wait`), kapsamlar `openid email drive.appdata` (hassas değil; uygulama "Üretim" moduna alınınca oturum 7 günde düşmez).
 - 2026-10-03: Bulutta tek dosya `duopdf-sync.json` (appDataFolder): belgeler (hash, ad), terimler, geçişler (terim anahtarı + belge hash'i), çeviriler, çizimler, sınav cevapları, silme izleri. Birleştirme: terim/çeviri/çizimde yeni `updatedAt` kazanır, geçiş ve cevaplar birleşir, silme izi kaydı yalnızca kayıttan yeniyse siler. Önbellek, OCR, dosya yolları, son sayfa, API anahtarları gitmez.
 - 2026-10-03: Eşitleme zamanları: açılışta, açıkken 5 dakikada bir, kapanırken (en çok 8 sn; `core:window:allow-destroy` izni) ve "Şimdi eşitle". "Öğrenme verisini sil" bağlıyken buluttaki kopyayı da silmeyi sorar; aksi hâlde veriler bir sonraki eşitlemede geri gelir.
+- 2026-10-03: Faz 8: yalnızca NSIS kurulum dosyası (`Duopdf_1.0.0_x64-setup.exe`, ~12,5 MB) yayınlanır; kod imzası yok (SmartScreen uyarısı README'de). Tesseract'tan yalnızca yüklenen `*-lstm.wasm.js` çekirdekleri pakete girer; `public/__harness` derlemeden sonra `dist`'ten silinir. Uygulama simgesi `app-icon.svg`'den `tauri icon` ile üretilir.
+- 2026-10-03: Derleme yarıda kesilirse Tauri'nin sıkıştırılmış varlık önbelleği (`target/release/build/duopdf-*/out/tauri-codegen-assets`) bozuk kalabilir ve uygulama gri ekranla açılır; çözüm `cargo clean --release -p duopdf`. Yayından önce gömülü varlıkların `dist` ile aynı olduğu kontrol edilir.
+- 2026-10-03: Geliştirme sürümü ayrı kimlikle çalışır (`com.egemen.duopdf.dev`, `src-tauri/tauri.dev.conf.json`, `npm run tauri dev` bunu `scripts/tauri.mjs` ile kendiliğinden ekler); kurulu uygulama (`com.egemen.duopdf`) ayarlarını ve verisini ondan ayrı tutar.
+- 2026-10-03: GitHub Release `v1.0.0` Egemen'in onayıyla yayınlandı. README ekran görüntüleri sonra eklenecek.
