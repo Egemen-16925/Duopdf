@@ -47,7 +47,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 4b — Kalemle not alma (kalem/tablet testleri Egemen'in isteğiyle proje sonuna bırakıldı)
 - [x] Faz 5 — Çoktan seçmeli sınav
 - [x] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
-- [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
+- [x] Faz 7 — İstatistik, sesli okuma, son rötuşlar
 - [ ] Faz 7b — Bulut eşitleme (Google Drive)
 - [ ] Faz 8 — Paketleme ve GitHub Release
 - [ ] Faz 9 — Android (isteğe bağlı)
@@ -357,3 +357,8 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-03: Açık uçlu soru: cümleyi model kurar (`openQuestion@1`), kullanıcı çevirisini yazar (iki yön), güçlü model `evaluateTranslation@2` ile anlam üzerinden değerlendirir (örnek çeviri yalnızca yol gösterir). Kelime doğru sayılır: modelin `hedefKelimeler` kararı doğruysa ve sonuç "yanlis" değilse.
 - 2026-10-03: Aralıklı tekrar (`src/quiz/review.ts`): her cevap (çoktan seçmeli dahil) `terms.review`'u günceller. Doğru: aralık 1, 3, 7 gün, sonra ×2,5; ilk doğru "bilmiyorum"u "az biliyorum"a, üst üste 3 doğru "biliyorum"a çıkarır. Yanlış: seri sıfırlanır, kelime hemen yeniden sorulabilir; "biliyorum" ise "az biliyorum"a iner.
 - 2026-10-03: "Bugünkü tekrar": tekrar zamanı bugün biten ya da geçmiş kelimeler, en çok gecikmiş önce. Soru türü (çoktan seçmeli / yazılı / karışık) ve yönü ayarlanabilir. Kelimeler sayfasında her kelimenin tekrar günü görünür. `quizAttempts`'e `kind: "open"`, `userAnswer`, `result`, `score`, `feedback` eklendi.
+- 2026-10-03: Sınav zorluğu: kolay (A2, 6-10 kelime), orta (B1, 8-14, varsayılan), zor (B2-C1, 12-22); her iki soru türünün istemine aynı kural eklenir (`multipleChoice@3`, `openQuestion@2`), seçim hatırlanır.
+- 2026-10-03: Tema: Sistem / Açık / Koyu (`prefs.theme`, `:root[data-theme]`); ilk çizimden önce uygulanır. Belge sayfaları her temada beyaz.
+- 2026-10-03: Sesli okuma: Web Speech API, yalnızca İngilizce sesler; ses ve hız Tercihler'de. Kelime/cümle pencerelerinde ve sınavda düğme; Türkçe → İngilizce soruda İngilizce cümle ancak cevaptan sonra okunur.
+- 2026-10-03: İstatistik sayfası: durum sayıları, günlük seri (sınav cevabı ya da yeni işaretlenen kelime olan günler; bugün çalışılmadıysa dünden sayılır), bugünkü tekrar, son 30 gün başarı, günlük cevap grafiği (tek seri, üzerine gelince ayrıntı, tablo görünümü), en çok yanlış yapılan kelimeler.
+- 2026-10-03: Kısayollar: F1 liste, Alt+1-5 sayfalar, Ctrl+O belge aç, Ctrl+W sekme kapat, Ctrl+Tab sekmeler arası. Belge listesi boşken "Nasıl başlanır?" rehberi.
