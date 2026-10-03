@@ -68,3 +68,32 @@ describe("targets", () => {
     expect(s.roles.strong).toEqual({ profileId: "b", model: "router/strong" });
   });
 });
+
+describe("fallback targets", () => {
+  const settings: ProviderSettings = {
+    profiles: [nvidia, router],
+    roles: {
+      fast: { profileId: "a", model: "m1", fallback: { profileId: "b", model: "m2" } },
+      strong: { profileId: "a", model: "m1", fallback: { profileId: "a", model: "m1" } },
+      vision: { profileId: "a", model: "v", fallback: { profileId: "b", model: "" } },
+    },
+  };
+
+  it("attaches a complete fallback that differs from the primary", () => {
+    const fast = targetFor(settings, "fast")!;
+    expect(fast.fallback?.profile.id).toBe("b");
+    expect(fast.fallback?.model).toBe("m2");
+    expect(targetFor(settings, "strong")!.fallback).toBeUndefined();
+    expect(targetFor(settings, "vision")!.fallback).toBeUndefined();
+  });
+
+  it("keeps stored fallbacks only for existing providers and clears them when the provider is removed", () => {
+    const s = normalizeSettings([nvidia, router], {
+      fast: { profileId: "a", model: "m1", fallback: { profileId: "b", model: "m2" } },
+      strong: { profileId: "a", model: "m1", fallback: { profileId: "gone", model: "m2" } },
+    });
+    expect(s.roles.fast.fallback).toEqual({ profileId: "b", model: "m2" });
+    expect(s.roles.strong.fallback).toBeUndefined();
+    expect(removeProfile(s, "b").roles.fast.fallback).toBeNull();
+  });
+});

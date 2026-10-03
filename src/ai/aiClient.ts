@@ -183,9 +183,23 @@ export async function runPrompt<I, O>(
   };
 }
 
+/**
+ * İsteği hedefe gönderir; hedefin yedeği varsa ve istek sınırı (429) aşıldıysa beklemeden
+ * yedeğe geçer. Yedek yoksa 429'da birkaç kez bekleyip yeniden dener.
+ */
+export async function withFallback<T>(target: AiTarget, run: (target: AiTarget, retries?: number) => Promise<T>): Promise<T> {
+  if (!target.fallback) return run(target);
+  try {
+    return await run(target, 0);
+  } catch (e) {
+    if (e instanceof AiError && e.kind === "rateLimit") return run(target.fallback);
+    throw e;
+  }
+}
+
 /** Şablonu çalıştırır; geçerli veri gelmezse anlaşılır bir AiError fırlatır. */
 export async function generate<I, O>(target: AiTarget, template: PromptTemplate<I, O>, input: I): Promise<O> {
-  const run = await runPrompt(target, template, input, { repair: true });
+  const run = await withFallback(target, (t, retries) => runPrompt(t, template, input, { repair: true, retries }));
   if (run.data === undefined) {
     throw new AiError("badResponse", "Model geçerli bir yanıt üretemedi. Tekrar dene veya başka model seç.", run.status, run.validationError);
   }

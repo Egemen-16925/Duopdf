@@ -73,7 +73,10 @@ function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
   return (
     <section className="profile-form">
       <h2>Modeller</h2>
-      <p className="muted">Her rol farklı bir sağlayıcıdan (farklı API anahtarıyla) çalışabilir.</p>
+      <p className="muted">
+        Her rol farklı bir sağlayıcıdan (farklı API anahtarıyla) çalışabilir. Yedek seçilirse, istek sınırı aşıldığında (429)
+        beklemeden yedeğe geçilir.
+      </p>
       {(Object.keys(ROLE_LABELS) as ModelRole[]).map((role) => {
         const profile = settings.profiles.find((p) => p.id === roles[role].profileId);
         const missingKey = profile && !profile.apiKey.trim();
@@ -100,6 +103,32 @@ function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
                 onOpen={() => ensureModels(roles[role].profileId)}
                 onChange={(model) => update(role, { model })}
               />
+            </div>
+            <div className="role-fields role-fallback">
+              <select
+                value={roles[role].fallback?.profileId ?? ""}
+                onChange={(e) =>
+                  update(role, { fallback: e.target.value ? { profileId: e.target.value, model: roles[role].fallback?.model ?? "" } : null })
+                }
+                aria-label={`${ROLE_LABELS[role]} yedek sağlayıcısı`}
+              >
+                <option value="">Yedek yok</option>
+                {settings.profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    Yedek: {p.name}
+                  </option>
+                ))}
+              </select>
+              {roles[role].fallback && (
+                <ModelInput
+                  value={roles[role].fallback.model}
+                  options={modelLists[roles[role].fallback.profileId] ?? []}
+                  placeholder="Yedek model"
+                  ariaLabel={`${ROLE_LABELS[role]} yedek modeli`}
+                  onOpen={() => ensureModels(roles[role].fallback!.profileId)}
+                  onChange={(model) => update(role, { fallback: { profileId: roles[role].fallback!.profileId, model } })}
+                />
+              )}
             </div>
             <small className="muted">
               {ROLE_HELP[role]}

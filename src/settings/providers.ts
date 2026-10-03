@@ -22,9 +22,14 @@ export const ROLE_LABELS: Record<ModelRole, string> = {
   vision: "Görsel model",
 };
 
-export interface RoleAssignment {
+export interface ModelChoice {
   profileId: string;
   model: string;
+}
+
+export interface RoleAssignment extends ModelChoice {
+  /** İstek sınırı (429) aşılınca geçilecek yedek sağlayıcı + model (isteğe bağlı). */
+  fallback?: ModelChoice | null;
 }
 
 export interface ProviderSettings {
@@ -36,6 +41,8 @@ export interface ProviderSettings {
 export interface AiTarget {
   profile: ProviderProfile;
   model: string;
+  /** İstek sınırı aşılınca kullanılacak yedek. */
+  fallback?: AiTarget;
 }
 
 /** Her rol için kullanılabilir hedef (sağlayıcı yoksa, anahtar ya da model boşsa null). */
@@ -93,16 +100,31 @@ export function normalizeSettings(
   const roles = emptyRoles(fallbackId);
   for (const role of Object.keys(roles) as ModelRole[]) {
     const stored = storedRoles[role];
-    if (stored) roles[role] = { profileId: ids.has(stored.profileId) ? stored.profileId : fallbackId, model: stored.model ?? "" };
+    if (!stored) continue;
+    roles[role] = { profileId: ids.has(stored.profileId) ? stored.profileId : fallbackId, model: stored.model ?? "" };
+    if (stored.fallback && ids.has(stored.fallback.profileId)) {
+      roles[role].fallback = { profileId: stored.fallback.profileId, model: stored.fallback.model ?? "" };
+    }
   }
   return { profiles, roles };
 }
 
+function resolve(settings: ProviderSettings, choice: ModelChoice | null | undefined): AiTarget | null {
+  if (!choice) return null;
+  const profile = settings.profiles.find((p) => p.id === choice.profileId);
+  const model = choice.model.trim();
+  if (!profile || !profile.apiKey.trim() || !profile.baseUrl.trim() || !model) return null;
+  return { profile, model };
+}
+
 export function targetFor(settings: ProviderSettings, role: ModelRole): AiTarget | null {
-  const { profileId, model } = settings.roles[role];
-  const profile = settings.profiles.find((p) => p.id === profileId);
-  if (!profile || !profile.apiKey.trim() || !profile.baseUrl.trim() || !model.trim()) return null;
-  return { profile, model: model.trim() };
+  const assignment = settings.roles[role];
+  const primary = resolve(settings, assignment);
+  if (!primary) return null;
+  const fallback = resolve(settings, assignment.fallback);
+  // Yedek asıl hedefle aynıysa işe yaramaz.
+  if (fallback && !(fallback.profile.id === primary.profile.id && fallback.model === primary.model)) primary.fallback = fallback;
+  return primary;
 }
 
 export function allTargets(settings: ProviderSettings): AiTargets {
@@ -115,7 +137,8 @@ export function removeProfile(settings: ProviderSettings, id: string): ProviderS
   if (profiles.length === 0) return settings;
   const roles = { ...settings.roles };
   for (const role of Object.keys(roles) as ModelRole[]) {
-    if (roles[role].profileId === id) roles[role] = { profileId: profiles[0].id, model: "" };
+    if (roles[role].profileId === id) roles[role] = { ...roles[role], profileId: profiles[0].id, model: "" };
+    if (roles[role].fallback?.profileId === id) roles[role] = { ...roles[role], fallback: null };
   }
   return { profiles, roles };
 }

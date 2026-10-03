@@ -226,3 +226,31 @@ describe("listModels / testConnection", () => {
     await expect(testConnection(profile, "fast/model")).rejects.toMatchObject({ kind: "auth" });
   });
 });
+
+describe("fallback on rate limit", () => {
+  const backupProfile: ProviderProfile = { id: "p2", name: "Yedek", baseUrl: "https://backup.test/v1", apiKey: "k2" };
+  const withBackup = { profile, model: "fast/model", fallback: { profile: backupProfile, model: "backup/model" } };
+
+  it("switches to the fallback right away when the primary answers 429", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response(429, { error: { message: "Too many" } }))
+      .mockResolvedValueOnce(completion(JSON.stringify({ ceviri: "Yedekten", dilbilgisiNotu: "" })));
+    const out = await generate(withBackup, translateSentencePrompt, { sentence: "Hi." });
+    expect(out.ceviri).toBe("Yedekten");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://backup.test/v1/chat/completions");
+    expect(sentBody(1).model).toBe("backup/model");
+  });
+
+  it("does not switch on other errors", async () => {
+    fetchMock.mockResolvedValueOnce(response(401, { error: { message: "bad key" } }));
+    const err = await generate(withBackup, translateSentencePrompt, { sentence: "Hi." }).catch((e) => e);
+    expect(err.kind).toBe("auth");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the fallback for image reading too", async () => {
+    fetchMock.mockResolvedValueOnce(response(429, "slow down")).mockResolvedValueOnce(completion("Okunan yazı"));
+    expect(await readImageWithAi(withBackup, "data:image/jpeg;base64,AAAA")).toBe("Okunan yazı");
+  });
+});
