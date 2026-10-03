@@ -190,13 +190,37 @@ export async function revoke(token: string): Promise<void> {
   await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: "POST" }).catch(() => undefined);
 }
 
+/** Google'ın hata gövdesinden neden kodları ve mesaj (ör. SERVICE_DISABLED, insufficientPermissions). */
+export function driveErrorInfo(text: string): { reasons: string[]; message: string } {
+  try {
+    const error = JSON.parse(text)?.error ?? {};
+    const reasons = [
+      ...(error.errors ?? []).map((e: { reason?: string }) => e.reason),
+      ...(error.details ?? []).map((d: { reason?: string }) => d.reason),
+      error.status,
+    ].filter((r): r is string => typeof r === "string");
+    return { reasons, message: typeof error.message === "string" ? error.message : text.slice(0, 200) };
+  } catch {
+    return { reasons: [], message: text.slice(0, 200) };
+  }
+}
+
+/** Projede Google Drive API kapalı: Google Cloud'da etkinleştirilmeli. */
+export const DRIVE_API_DISABLED =
+  "Google Cloud projende Google Drive API kapalı. Google Cloud Console → APIs & Services → Library → \"Google Drive API\" → Enable; sonra birkaç dakika bekleyip \"Şimdi eşitle\"ye bas.";
+
 async function driveRequest(token: string, url: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(url, { ...init, headers: { ...(init.headers as Record<string, string>), Authorization: `Bearer ${token}` } });
   if (res.status === 401) throw new SignInRequired();
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 403 && /insufficient|scope/i.test(text)) throw new DrivePermissionMissing();
-    throw new Error(`Google Drive hatası (${res.status}): ${text.slice(0, 200)}`);
+    const { reasons, message } = driveErrorInfo(await res.text().catch(() => ""));
+    if (reasons.some((r) => r === "SERVICE_DISABLED" || r === "accessNotConfigured") || /has not been used|is disabled/i.test(message)) {
+      throw new Error(DRIVE_API_DISABLED);
+    }
+    if (res.status === 403 && (reasons.some((r) => /insufficient|SCOPE/i.test(r)) || /insufficient authentication scopes/i.test(message))) {
+      throw new DrivePermissionMissing();
+    }
+    throw new Error(`Google Drive hatası (${res.status}): ${message}`);
   }
   return res;
 }

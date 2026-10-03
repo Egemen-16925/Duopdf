@@ -93,7 +93,7 @@ vi.mock("@tauri-apps/plugin-http", () => ({
 
 import { db } from "../db/db";
 import { markTerm } from "../learning/terms";
-import { pkcePair } from "./google";
+import { DRIVE_API_DISABLED, driveErrorInfo, pkcePair } from "./google";
 import { connect, deleteCloudData, getSyncState, initSync, setClient, syncNow } from "./manager";
 import { mergeSnapshots, parseSnapshot } from "./snapshot";
 
@@ -183,5 +183,19 @@ describe("Google Drive sync", () => {
     grantedScope = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.appdata";
     await connect();
     expect(getSyncState().connected).toBe(true);
+  });
+
+  it("recognises a disabled Drive API from Google's error body", () => {
+    const body = JSON.stringify({
+      error: {
+        code: 403,
+        message: "Google Drive API has not been used in project 178 before or it is disabled. Enable it by visiting ...",
+        errors: [{ reason: "accessNotConfigured" }],
+        status: "PERMISSION_DENIED",
+        details: [{ reason: "SERVICE_DISABLED" }],
+      },
+    });
+    expect(driveErrorInfo(body).reasons).toEqual(["accessNotConfigured", "SERVICE_DISABLED", "PERMISSION_DENIED"]);
+    expect(DRIVE_API_DISABLED).toContain("Google Drive API");
   });
 });
