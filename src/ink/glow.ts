@@ -60,8 +60,9 @@ export function attachGlow(opts: GlowOptions): () => void {
     ctx.globalAlpha = alpha;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(255, 214, 10, 0.55)";
-    ctx.shadowColor = "rgba(255, 200, 0, 0.9)";
+    // Yarı saydam sarı: beyaz sayfada fosforlu kalem gibi, renkli zeminde de yazı okunur kalır.
+    ctx.strokeStyle = "rgba(255, 230, 0, 0.38)";
+    ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
     ctx.shadowBlur = 14;
     ctx.lineWidth = 16;
     ctx.beginPath();
@@ -88,29 +89,74 @@ export function attachGlow(opts: GlowOptions): () => void {
     fadeFrame = requestAnimationFrame(step);
   }
 
+  /** İmlecin bitiştiği harfin ekrandaki kutusu. */
+  function charBox(node: Text, offset: number): DOMRect | null {
+    if (node.length === 0) return null;
+    const i = Math.min(Math.max(offset, 0), node.length - 1);
+    const range = document.createRange();
+    range.setStart(node, i);
+    range.setEnd(node, i + 1);
+    const box = range.getBoundingClientRect();
+    return box.width > 0 || box.height > 0 ? box : null;
+  }
+
+  /**
+   * İzin geçtiği metin konumları. Yalnızca uçlara bakmak yetmez: büyük başlıklarda iz çoğu zaman
+   * yazının solundan başlayıp sağında biter, uçlar boş zemine düşer. Bu yüzden izin üzerindeki
+   * noktalardan metnin üstüne (ya da hemen altına/üstüne) gelenler toplanır.
+   */
+  function textHits(): { node: Node; offset: number; root: Element; x: number; y: number }[] {
+    const hits: { node: Node; offset: number; root: Element; x: number; y: number }[] = [];
+    let last: { x: number; y: number } | null = null;
+    for (const p of points) {
+      if (last && Math.hypot(p.x - last.x, p.y - last.y) < 4) continue;
+      last = p;
+      const caret = caretFromPoint(p.x, p.y);
+      if (!caret || caret.node.nodeType !== Node.TEXT_NODE) continue;
+      const root = caret.node.parentElement?.closest(opts.rootSelector);
+      if (!root) continue;
+      // İmleç en yakın yazıya "yapışır" (boş zeminde bile); nokta o harfin üstünde ya da çok yakınında mı?
+      const box = charBox(caret.node as Text, caret.offset);
+      if (!box) continue;
+      const padX = Math.max(4, box.width);
+      const padY = Math.max(6, box.height * 0.6);
+      if (p.x < box.left - padX || p.x > box.right + padX || p.y < box.top - padY || p.y > box.bottom + padY) continue;
+      hits.push({ node: caret.node, offset: caret.offset, root, x: p.x, y: p.y });
+    }
+    return hits;
+  }
+
   function pick() {
-    const first = points[0];
-    const last = points[points.length - 1];
-    if (!first || !last) return;
-    const a = caretFromPoint(first.x, first.y);
-    const b = caretFromPoint(last.x, last.y);
-    const rootA = a && (a.node.parentElement ?? null)?.closest(opts.rootSelector);
-    const rootB = b && (b.node.parentElement ?? null)?.closest(opts.rootSelector);
+    const hits = textHits();
+    if (hits.length === 0) return;
+    // En çok dokunulan metin kökü (sayfa / bölüm) seçilir.
+    const counts = new Map<Element, number>();
+    for (const h of hits) counts.set(h.root, (counts.get(h.root) ?? 0) + 1);
+    const root = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+    const inRoot = hits.filter((h) => h.root === root);
+    // Belge sırasına göre en baştaki ve en sondaki konum (sağdan sola çizim de olur).
+    const probe = document.createRange();
+    const before = (a: (typeof inRoot)[number], b: (typeof inRoot)[number]) => {
+      probe.setStart(a.node, a.offset);
+      probe.collapse(true);
+      return probe.comparePoint(b.node, b.offset) > 0;
+    };
+    let first = inRoot[0];
+    let last = inRoot[0];
+    for (const h of inRoot) {
+      if (before(h, first)) first = h;
+      if (before(last, h)) last = h;
+    }
     let result: ReturnType<typeof pickAtPoint> = null;
-    if (a && b && rootA && rootA === rootB && !(a.node === b.node && a.offset === b.offset)) {
+    if (first.node !== last.node || first.offset !== last.offset) {
       const range = document.createRange();
-      range.setStart(a.node, a.offset);
-      range.setEnd(b.node, b.offset);
-      if (range.collapsed) {
-        // Sağdan sola çizildiyse uçları değiştir.
-        range.setStart(b.node, b.offset);
-        range.setEnd(a.node, a.offset);
-      }
+      range.setStart(first.node, first.offset);
+      range.setEnd(last.node, last.offset);
       result = pickFromRange(range, opts.rootSelector, opts.mode);
       if (result) flashRange(range, 800);
-    } else if (rootA) {
-      result = pickAtPoint(first.x, first.y, rootA, opts.mode);
     }
+    // Tek noktaya dokunulduysa (ya da aralık kelime içermiyorsa) o noktadaki kelime.
+    result ??= pickAtPoint(first.x, first.y, root, opts.mode);
     if (result) opts.onPick(result.pick, result.root);
   }
 

@@ -1255,8 +1255,6 @@ pre {
   height: 100vh;
   pointer-events: none;
   z-index: 50;
-  /* Metin izin altında okunur kalsın (fosforlu kalem gibi). */
-  mix-blend-mode: multiply;
 }
 
 .profile-form label.check-row {
