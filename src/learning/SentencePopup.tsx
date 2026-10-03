@@ -1,3 +1,4 @@
+import { SpeakButton } from "../speech/SpeakButton";
 import { useEffect, useRef, useState } from "react";
 import { generate } from "../ai/aiClient";
 import { describeAiError } from "../ai/errors";
@@ -86,6 +87,7 @@ export function SentencePopup({ pick, source, target, onClose }: Props) {
     <div ref={ref} className="word-popup sentence-popup" style={{ left: pos.left, top: pos.top, width: WIDTH }} role="dialog" aria-label="Cümle çevirisi">
       <div className="word-popup-head">
         <div className="muted sentence-source">{pick.text}</div>
+        <SpeakButton text={pick.text} label="Cümleyi sesli oku" />
         <button className="icon-btn" onClick={onClose} aria-label="Kapat">
           ×
         </button>

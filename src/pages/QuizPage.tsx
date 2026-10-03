@@ -27,6 +27,8 @@ import {
 } from "../quiz/quiz";
 import { describeDue, dueTerms, type ReviewChange } from "../quiz/review";
 import type { AiTarget } from "../settings/providers";
+import { SpeakButton } from "../speech/SpeakButton";
+import { stopSpeaking } from "../speech/speech";
 import { QuizScore } from "./WordsPage";
 
 interface Props {
@@ -263,8 +265,11 @@ export function QuizPage({ target, fast, active }: Props) {
     };
   }, [phase, current, doneNow]);
 
-  // Soru değişince açık pencere kapanır.
-  useEffect(() => setPopup(null), [phase, current]);
+  // Soru değişince açık pencere kapanır, okunan ses durur.
+  useEffect(() => {
+    setPopup(null);
+    stopSpeaking();
+  }, [phase, current]);
 
   const popups = popup && (
     <>
@@ -486,6 +491,7 @@ export function QuizPage({ target, fast, active }: Props) {
                   <div className="quiz-mistake-term">{s.item.term.lemma}</div>
                   <div className="quiz-sentence-small">
                     <English question={q} pickable />
+                    <SpeakButton text={q.english} />
                   </div>
                   {q.direction === "tr-en" && <div className="muted">{q.turkish}</div>}
                   <div className="quiz-answer-right">Doğrusu: {right}</div>
@@ -548,7 +554,11 @@ export function QuizPage({ target, fast, active }: Props) {
         ) : (
           question && (
             <>
-              <p className="quiz-sentence">{toTurkish ? <English question={question} pickable={slot.done} /> : question.turkish}</p>
+              <p className="quiz-sentence">
+                {toTurkish ? <English question={question} pickable={slot.done} /> : question.turkish}
+                {/* Türkçe → İngilizce soruda İngilizcesini okumak cevabı söyler; ancak cevaptan sonra. */}
+                {(toTurkish || slot.done) && <SpeakButton text={question.english} label="İngilizce cümleyi sesli oku" />}
+              </p>
 
               {question.kind === "mcq" ? (
                 <ol className="quiz-options">

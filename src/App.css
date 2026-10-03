@@ -1755,3 +1755,26 @@ div.quiz-option {
 .prefs-row select {
   width: auto;
 }
+
+.speak-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 2px 4px;
+  color: var(--muted);
+}
+
+.speak-btn:hover,
+.speak-btn.speaking {
+  color: var(--accent);
+}
+
+.prefs-controls {
+  display: flex;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}

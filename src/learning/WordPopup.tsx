@@ -1,3 +1,4 @@
+import { SpeakButton } from "../speech/SpeakButton";
 import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generate } from "../ai/aiClient";
@@ -112,7 +113,10 @@ export function WordPopup({ pick, location, target, onClose, onTranslateSentence
     <div ref={ref} className="word-popup" style={{ left: pos.left, top: pos.top, width: WIDTH }} role="dialog" aria-label="Kelime">
       <div className="word-popup-head">
         <div>
-          <div className="word-surface">{pick.surface}</div>
+          <div className="word-surface">
+            {pick.surface}
+            <SpeakButton text={pick.surface} label="Kelimeyi sesli oku" />
+          </div>
           {lemma.toLowerCase() !== pick.surface.toLowerCase() && <div className="muted">kök: {lemma}</div>}
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="Kapat">

@@ -1,4 +1,11 @@
 import { setPrefs, usePrefs, type Theme } from "../settings/prefs";
+import { speechAvailable, toggleSpeak, useEnglishVoices } from "../speech/speech";
+
+const RATES: { rate: number; label: string }[] = [
+  { rate: 0.7, label: "Yavaş" },
+  { rate: 0.9, label: "Normal" },
+  { rate: 1.1, label: "Hızlı" },
+];
 
 const THEMES: { theme: Theme; label: string }[] = [
   { theme: "system", label: "Sistem (Windows ayarı)" },
@@ -10,6 +17,7 @@ const THEMES: { theme: Theme; label: string }[] = [
 export function PrefsSection() {
   const prefs = usePrefs();
   const skipped = Object.values(prefs.skipConfirm).filter(Boolean).length;
+  const voices = useEnglishVoices();
   return (
     <section className="profile-form">
       <h2>Tercihler</h2>
@@ -25,6 +33,38 @@ export function PrefsSection() {
             </option>
           ))}
         </select>
+      </div>
+      <div className="prefs-row prefs-first">
+        <span>
+          Sesli okuma
+          <small>
+            {!speechAvailable()
+              ? "Bu sistemde sesli okuma desteklenmiyor."
+              : voices.length === 0
+                ? "Yüklü İngilizce ses bulunamadı. Windows Ayarlar → Zaman ve dil → Konuşma'dan İngilizce ses ekleyebilirsin."
+                : "Windows'taki İngilizce sesler kullanılır; internet gerekmez."}
+          </small>
+        </span>
+        <span className="prefs-controls">
+          <select value={prefs.speechVoice} onChange={(e) => setPrefs({ speechVoice: e.target.value })} aria-label="Ses">
+            <option value="">Varsayılan ses</option>
+            {voices.map((v) => (
+              <option key={v.voiceURI} value={v.voiceURI}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+          <select value={prefs.speechRate} onChange={(e) => setPrefs({ speechRate: Number(e.target.value) })} aria-label="Okuma hızı">
+            {RATES.map((r) => (
+              <option key={r.rate} value={r.rate}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <button className="secondary" onClick={() => toggleSpeak("Version control systems record changes to a file over time.")} disabled={!speechAvailable()}>
+            Dene
+          </button>
+        </span>
       </div>
       <label className="check-row">
         <input type="checkbox" checked={prefs.fingerDraw} onChange={(e) => setPrefs({ fingerDraw: e.target.checked })} />

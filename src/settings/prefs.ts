@@ -8,12 +8,15 @@ export interface Prefs {
   skipConfirm: Record<string, boolean>;
   /** Arayüz teması; "system" Windows'un ayarını izler. */
   theme: Theme;
+  /** Sesli okuma: seçilen İngilizce ses (boşsa ABD İngilizcesi) ve hız. */
+  speechVoice: string;
+  speechRate: number;
 }
 
 export type Theme = "system" | "light" | "dark";
 
 const KEY = "duopdf.prefs";
-const DEFAULTS: Prefs = { fingerDraw: false, skipConfirm: {}, theme: "system" };
+const DEFAULTS: Prefs = { fingerDraw: false, skipConfirm: {}, theme: "system", speechVoice: "", speechRate: 0.9 };
 
 function read(): Prefs {
   try {
