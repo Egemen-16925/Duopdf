@@ -1957,3 +1957,27 @@ kbd {
   background: var(--bg);
   white-space: nowrap;
 }
+
+.getting-started {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 20px;
+}
+
+.getting-started h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.getting-started ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.getting-started p {
+  margin: 0;
+}

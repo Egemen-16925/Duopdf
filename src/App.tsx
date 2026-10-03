@@ -123,7 +123,7 @@ function App() {
         {page !== "reader" && page !== "quiz" && (
           <main className="content page-layer">
             {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
-            {page === "words" && <WordsPage onGoTo={goToOccurrence} />}
+            {page === "words" && <WordsPage onGoTo={goToOccurrence} onGoReader={() => setPage("reader")} />}
             {page === "stats" && <StatsPage active onGo={setPage} />}
             {settings && page === "settings" && (
               <SettingsPage

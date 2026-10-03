@@ -520,6 +520,18 @@ export function ReaderPage({ ai, ref }: Props) {
               </button>
             </div>
 
+            {recent.length === 0 && (
+              <section className="getting-started">
+                <h2>Nasıl başlanır?</h2>
+                <ol>
+                  <li>Bir ders belgesi aç (PDF, EPUB, DOCX, PPTX, TXT ya da resim).</li>
+                  <li>Bilmediğin kelimeye tıkla: anlamını gör, "bilmiyorum" ya da "az biliyorum" diye işaretle. Uzun bir seçim cümleyi çevirir.</li>
+                  <li>İşaretlediğin kelimeler bütün belgelerde renkli görünür; Kelimeler sayfasında listelenir.</li>
+                  <li>Sınav sayfasından kelimelerini tekrar et; her gün "Bugünkü tekrar"ı çöz.</li>
+                </ol>
+                <p className="muted">Önce Ayarlar'dan API anahtarını gir ve modelleri seç. Kısayollar için F1.</p>
+              </section>
+            )}
             {recent.length > 0 && (
               <section className="recent">
                 <div className="recent-header">

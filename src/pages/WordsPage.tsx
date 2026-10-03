@@ -10,6 +10,8 @@ import { describeDue } from "../quiz/review";
 
 interface Props {
   onGoTo(occurrence: OccurrenceRecord): void;
+  /** Boş durumda okuyucuya geçiş. */
+  onGoReader?(): void;
 }
 
 type Filter = "all" | TermStatus;
@@ -20,7 +22,7 @@ function matchesSearch(term: TermRecord, query: string): boolean {
   return [term.lemma, term.surface, term.meaning].some((field) => field.toLocaleLowerCase("tr").includes(q));
 }
 
-export function WordsPage({ onGoTo }: Props) {
+export function WordsPage({ onGoTo, onGoReader }: Props) {
   const terms = useTerms();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -95,9 +97,11 @@ export function WordsPage({ onGoTo }: Props) {
       </div>
 
       {terms.length === 0 && (
-        <p className="muted empty">
-          Henüz kelime işaretlemedin. Okuyucuda bir kelimeye tıkla ya da birkaç kelimeyi seç, sonra durumunu işaretle.
-        </p>
+        <div className="empty-state">
+          <p>Henüz kelime işaretlemedin.</p>
+          <p className="muted">Okuyucuda bir kelimeye tıkla ya da birkaç kelimeyi seç, sonra durumunu işaretle.</p>
+          {onGoReader && <button onClick={onGoReader}>Okuyucuya git</button>}
+        </div>
       )}
       {terms.length > 0 && visible.length === 0 && <p className="muted empty">Aramaya uyan kelime yok.</p>}
 
