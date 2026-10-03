@@ -1348,3 +1348,215 @@ pre {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Sınav */
+.quiz-page {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quiz-page h2 {
+  margin: 0;
+}
+
+.quiz-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.quiz-setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-setup-label {
+  font-weight: 600;
+  min-width: 110px;
+}
+
+.quiz-setup select {
+  width: auto;
+}
+
+.profile-form label.quiz-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 400;
+}
+
+.quiz-check input {
+  width: auto;
+}
+
+.quiz-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quiz-progress {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.quiz-progress > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.quiz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.quiz-question {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.quiz-sentence {
+  font-size: 1.2rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.quiz-sentence mark {
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-weight: 600;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.quiz-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quiz-option {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 400;
+}
+
+.quiz-option:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.quiz-option:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.quiz-option.correct {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.quiz-option.wrong {
+  border-color: var(--bad);
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.quiz-option.dim {
+  opacity: 0.65;
+}
+
+.quiz-letter {
+  font-weight: 700;
+  min-width: 1.2em;
+}
+
+.quiz-why {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 4px 0 0 34px;
+}
+
+.quiz-feedback,
+.quiz-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.quiz-answer-right {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.quiz-answer-wrong {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.quiz-score {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.quiz-mistakes h3 {
+  margin: 0 0 8px;
+}
+
+.quiz-mistake {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--bad);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quiz-mistake-term {
+  font-weight: 700;
+}
+
+.quiz-sentence-small {
+  font-style: italic;
+}
+
+.quiz-mistake .quiz-answer-right,
+.quiz-mistake .quiz-answer-wrong {
+  font-weight: 400;
+}
+
+.quiz-page > button {
+  align-self: flex-start;
+}

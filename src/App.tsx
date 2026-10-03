@@ -3,17 +3,19 @@ import "./App.css";
 import type { OccurrenceRecord } from "./db/db";
 import { refreshTerms } from "./learning/store";
 import { ModelTestPage } from "./pages/ModelTestPage";
+import { QuizPage } from "./pages/QuizPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
 import { ConfirmHost } from "./ui/confirm";
 import { allTargets, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
-type Page = "reader" | "words" | "settings" | "modelTest";
+type Page = "reader" | "words" | "quiz" | "settings" | "modelTest";
 
 const NAV: { id: Page; label: string }[] = [
   { id: "reader", label: "Okuyucu" },
   { id: "words", label: "Kelimeler" },
+  { id: "quiz", label: "Sınav" },
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
@@ -68,7 +70,11 @@ function App() {
         <div className={page === "reader" ? "page-layer" : "page-layer inactive"}>
           <ReaderPage ref={readerRef} ai={settings ? allTargets(settings) : NO_AI} />
         </div>
-        {page !== "reader" && (
+        {/* Sınav da sayfa değişince kaybolmasın. */}
+        <main className={page === "quiz" ? "content page-layer" : "content page-layer inactive"}>
+          <QuizPage target={settings ? allTargets(settings).strong : null} active={page === "quiz"} />
+        </main>
+        {page !== "reader" && page !== "quiz" && (
           <main className="content page-layer">
             {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
             {page === "words" && <WordsPage onGoTo={goToOccurrence} />}
