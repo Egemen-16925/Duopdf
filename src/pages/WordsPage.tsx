@@ -5,6 +5,7 @@ import type { TermStatus } from "../learning/matcher";
 import { refreshTerms, useTerms } from "../learning/store";
 import { deleteTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "../learning/terms";
 import { STATUS_LABELS } from "../learning/WordPopup";
+import { quizStats, type TermQuizStats } from "../quiz/quiz";
 
 interface Props {
   onGoTo(occurrence: OccurrenceRecord): void;
@@ -23,12 +24,14 @@ export function WordsPage({ onGoTo }: Props) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [counts, setCounts] = useState<Map<number, number>>(new Map());
+  const [scores, setScores] = useState<Map<string, TermQuizStats>>(new Map());
   const [documents, setDocuments] = useState<Map<number, DocumentRecord>>(new Map());
   const [expanded, setExpanded] = useState<number | null>(null);
   const [occurrences, setOccurrences] = useState<OccurrenceRecord[]>([]);
 
   useEffect(() => {
     occurrenceCounts(db).then(setCounts);
+    quizStats(db).then(setScores);
     db.documents.toArray().then((docs) => setDocuments(new Map(docs.map((d) => [d.id, d]))));
   }, [terms]);
 
@@ -110,6 +113,7 @@ export function WordsPage({ onGoTo }: Props) {
                 {term.surface.toLowerCase() !== term.lemma.toLowerCase() && <span className="muted"> ({term.surface})</span>}
                 <span className="term-meaning">{term.meaning || <span className="muted">anlam yok</span>}</span>
               </button>
+              <QuizScore stats={scores.get(term.key)} />
               <span className="muted term-count" title="Kaydedilen geçiş sayısı">
                 {counts.get(term.id) ?? 0} geçiş
               </span>
@@ -159,5 +163,17 @@ export function WordsPage({ onGoTo }: Props) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Kelimenin sınav sonucu: kaç doğru, kaç yanlış. */
+export function QuizScore({ stats }: { stats?: TermQuizStats }) {
+  if (!stats || stats.count === 0) return <span className="term-score muted" title="Henüz sınavda sorulmadı">—</span>;
+  return (
+    <span className="term-score" title={`Sınavda ${stats.count} kez soruldu`}>
+      <span className="quiz-answer-right">{stats.correct} doğru</span>
+      {" · "}
+      <span className="quiz-answer-wrong">{stats.wrong} yanlış</span>
+    </span>
   );
 }

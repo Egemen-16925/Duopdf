@@ -10,12 +10,15 @@ import {
   quizStats,
   recordAttempt,
   type QuizItem,
+  type QuizMode,
   type QuizQuestion,
+  type TermQuizStats,
 } from "../quiz/quiz";
 import type { AiTarget } from "../settings/providers";
+import { QuizScore } from "./WordsPage";
 
 interface Props {
-  /** Güçlü model (çeldiricileri üretir). */
+  /** Güçlü model (soruları üretir; hata olursa yedek model denenir). */
   target: AiTarget | null;
   /** Sayfa ekranda mı (klavye kısayolları yalnızca o zaman çalışır). */
   active: boolean;
@@ -27,7 +30,6 @@ interface Slot {
   question?: QuizQuestion;
   error?: string;
   chosen?: number;
-  skipped?: boolean;
 }
 
 const STATUS_LABELS: { status: TermStatus; label: string }[] = [
@@ -35,15 +37,35 @@ const STATUS_LABELS: { status: TermStatus; label: string }[] = [
   { status: "learning", label: "Az biliyorum" },
   { status: "known", label: "Biliyorum" },
 ];
+const MODES: { mode: QuizMode; label: string }[] = [
+  { mode: "mixed", label: "Karışık" },
+  { mode: "en-tr", label: "İngilizce → Türkçe" },
+  { mode: "tr-en", label: "Türkçe → İngilizce" },
+];
 const COUNTS = [5, 10, 15, 20];
 const LETTERS = ["A", "B", "C", "D"];
 /** Şu anki sorudan sonra kaç soru önceden hazırlansın. */
 const PREFETCH = 2;
 
+/** İngilizce cümle, hedef kelime vurgulu. */
+function English({ question }: { question: QuizQuestion }) {
+  const { english, highlight } = question;
+  if (!highlight) return <>{english}</>;
+  return (
+    <>
+      {english.slice(0, highlight.start)}
+      <mark>{english.slice(highlight.start, highlight.end)}</mark>
+      {english.slice(highlight.end)}
+    </>
+  );
+}
+
 export function QuizPage({ target, active }: Props) {
   const terms = useTerms();
   const [occurrences, setOccurrences] = useState<OccurrenceRecord[]>([]);
+  const [stats, setStats] = useState<Map<string, TermQuizStats>>(new Map());
   const [statuses, setStatuses] = useState<TermStatus[]>(["unknown", "learning"]);
+  const [mode, setMode] = useState<QuizMode>("mixed");
   const [count, setCount] = useState(10);
   const [phase, setPhase] = useState<"setup" | "running" | "done">("setup");
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -52,16 +74,18 @@ export function QuizPage({ target, active }: Props) {
   /** Yeni sınav başlayınca eski isteklerin sonuçları yok sayılır. */
   const run = useRef(0);
 
-  // Kelimelerin geçtiği cümleler (ayar ekranı her açıldığında tazelenir).
+  // Ayar ve sonuç ekranında güncel sayılar.
   useEffect(() => {
-    if (active && phase === "setup") db.occurrences.toArray().then(setOccurrences);
+    if (!active || phase === "running") return;
+    db.occurrences.toArray().then(setOccurrences);
+    quizStats(db).then(setStats);
   }, [active, phase, terms]);
 
-  const eligible = useMemo(() => countEligible(terms, occurrences, statuses), [terms, occurrences, statuses]);
+  const eligible = useMemo(() => countEligible(terms, statuses), [terms, statuses]);
 
   async function start() {
-    const stats = await quizStats(db);
-    const items = pickQuizItems(terms, occurrences, stats, { count, statuses });
+    const fresh = await quizStats(db);
+    const items = pickQuizItems(terms, occurrences, fresh, { count, statuses, mode });
     if (items.length === 0) return;
     run.current++;
     loading.current.clear();
@@ -74,18 +98,17 @@ export function QuizPage({ target, active }: Props) {
     setSlots((prev) => prev.map((s, i) => (i === index ? { ...s, ...change } : s)));
   }
 
-  async function load(index: number, force = false) {
+  async function load(index: number, avoid: string[] = []) {
     const slot = slots[index];
     if (!slot || !target || loading.current.has(index)) return;
     const myRun = run.current;
     loading.current.add(index);
-    patch(index, { state: "loading", error: undefined, question: force ? undefined : slot.question });
+    patch(index, { state: "loading", error: undefined, question: undefined });
     try {
-      const question = await makeQuestion(db, target, slot.item, { force });
+      const question = await makeQuestion(db, target, slot.item, { avoid });
       if (run.current === myRun) patch(index, { state: "ready", question });
     } catch (e) {
-      if (run.current === myRun) patch(index, { state: "error", error: `${describeAiError(e)}
-Model: ${target.model}` });
+      if (run.current === myRun) patch(index, { state: "error", error: describeAiError(e) });
     } finally {
       loading.current.delete(index);
     }
@@ -111,11 +134,6 @@ Model: ${target.model}` });
     else setCurrent(current + 1);
   }
 
-  function skip() {
-    patch(current, { skipped: true });
-    next();
-  }
-
   // Klavye: 1-4 ya da A-D şık seçer, Enter sonraki soruya geçer.
   const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
   keyHandler.current = (e: KeyboardEvent) => {
@@ -125,7 +143,7 @@ Model: ${target.model}` });
     const slot = slots[current];
     if (!slot) return;
     const k = e.key.toLowerCase();
-    const choice = ["1", "2", "3", "4"].indexOf(k) >= 0 ? Number(k) - 1 : ["a", "b", "c", "d"].indexOf(k);
+    const choice = ["1", "2", "3", "4"].includes(k) ? Number(k) - 1 : ["a", "b", "c", "d"].indexOf(k);
     if (choice >= 0 && slot.question && slot.chosen === undefined) {
       e.preventDefault();
       choose(choice);
@@ -142,14 +160,18 @@ Model: ${target.model}` });
   }, [active]);
 
   if (phase === "setup") {
+    const scored = terms
+      .map((t) => ({ term: t, s: stats.get(t.key) }))
+      .filter((x): x is { term: typeof x.term; s: TermQuizStats } => !!x.s && x.s.count > 0)
+      .sort((a, b) => b.s.wrong - a.s.wrong || a.s.correct - b.s.correct);
     return (
       <div className="quiz-page">
         <h2>Çoktan seçmeli sınav</h2>
         <p className="muted">
-          İşaretlediğin kelimelerin geçtiği cümleler sorulur: "Bu cümlenin Türkçesi hangisidir?" Şıkları güçlü model hazırlar;
-          aynı soru ikinci kez sorulursa önbellekten gelir.
+          İşaretlediğin kelimeler her sınavda yapay zekânın kurduğu yeni bir cümleyle sorulur. Önce az sorulan ve çok yanlış
+          yaptığın kelimeler gelir.
         </p>
-        {!target && <p className="msg error">Ayarlar → Modeller'den bir güçlü model seç; şıkları o hazırlar.</p>}
+        {!target && <p className="msg error">Ayarlar → Modeller'den bir güçlü model seç; soruları o hazırlar.</p>}
         <section className="profile-form quiz-setup">
           <div className="quiz-setup-row">
             <span className="quiz-setup-label">Hangi kelimeler</span>
@@ -165,6 +187,16 @@ Model: ${target.model}` });
             ))}
           </div>
           <div className="quiz-setup-row">
+            <span className="quiz-setup-label">Soru yönü</span>
+            <select value={mode} onChange={(e) => setMode(e.target.value as QuizMode)} aria-label="Soru yönü">
+              {MODES.map((m) => (
+                <option key={m.mode} value={m.mode}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="quiz-setup-row">
             <span className="quiz-setup-label">Soru sayısı</span>
             <select value={count} onChange={(e) => setCount(Number(e.target.value))} aria-label="Soru sayısı">
               {COUNTS.map((c) => (
@@ -176,21 +208,36 @@ Model: ${target.model}` });
             <span className="muted">
               {eligible > 0
                 ? `Sorulabilecek ${eligible} kelime var${eligible < count ? `; sınav ${eligible} soru olacak` : ""}.`
-                : "Bu durumlarda, geçtiği cümle kayıtlı kelime yok. Okurken kelime işaretle."}
+                : "Bu durumlarda kelime yok. Okurken kelime işaretle."}
             </span>
           </div>
           <button onClick={start} disabled={!target || eligible === 0}>
             Sınavı başlat
           </button>
         </section>
+
+        {scored.length > 0 && (
+          <section className="quiz-scores">
+            <h3>Kelimelerdeki başarın</h3>
+            <div className="quiz-score-list">
+              {scored.map(({ term, s }) => (
+                <div key={term.id} className="quiz-score-row">
+                  <span className="quiz-mistake-term">{term.lemma}</span>
+                  <span className="muted">{term.meaning}</span>
+                  <QuizScore stats={s} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
 
   if (phase === "done") {
-    const answered = slots.filter((s) => s.chosen !== undefined);
-    const right = answered.filter((s) => s.chosen === s.question?.correctIndex);
-    const wrong = answered.filter((s) => s.chosen !== s.question?.correctIndex);
+    const answered = slots.filter((s) => s.chosen !== undefined && s.question);
+    const right = answered.filter((s) => s.chosen === s.question!.correctIndex);
+    const wrong = answered.filter((s) => s.chosen !== s.question!.correctIndex);
     const skipped = slots.length - answered.length;
     return (
       <div className="quiz-page">
@@ -199,17 +246,38 @@ Model: ${target.model}` });
           {right.length} / {answered.length} doğru
           {skipped > 0 && <span className="muted"> · {skipped} soru cevaplanmadı</span>}
         </p>
+
+        <section className="quiz-scores">
+          <h3>Bu sınavdaki kelimeler</h3>
+          <div className="quiz-score-list">
+            {answered.map((s, i) => {
+              const ok = s.chosen === s.question!.correctIndex;
+              return (
+                <div key={i} className="quiz-score-row">
+                  <span className={ok ? "quiz-answer-right" : "quiz-answer-wrong"}>{ok ? "✓" : "✗"}</span>
+                  <span className="quiz-mistake-term">{s.item.term.lemma}</span>
+                  <span className="muted">toplam:</span>
+                  <QuizScore stats={stats.get(s.item.term.key)} />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         {wrong.length > 0 ? (
           <section className="quiz-mistakes">
-            <h3>Yanlış yaptığın kelimeler</h3>
-            {wrong.map((s, i) => (
-              <div key={i} className="quiz-mistake">
-                <div className="quiz-mistake-term">{s.item.term.lemma}</div>
-                <div className="quiz-sentence-small">{s.item.sentence}</div>
-                <div className="quiz-answer-right">Doğrusu: {s.question!.options[s.question!.correctIndex].text}</div>
-                <div className="quiz-answer-wrong">Senin cevabın: {s.question!.options[s.chosen!].text}</div>
-              </div>
-            ))}
+            <h3>Yanlış yaptığın sorular</h3>
+            {wrong.map((s, i) => {
+              const q = s.question!;
+              return (
+                <div key={i} className="quiz-mistake">
+                  <div className="quiz-mistake-term">{s.item.term.lemma}</div>
+                  <div className="quiz-sentence-small">{q.direction === "en-tr" ? <English question={q} /> : q.turkish}</div>
+                  <div className="quiz-answer-right">Doğrusu: {q.options[q.correctIndex].text}</div>
+                  <div className="quiz-answer-wrong">Senin cevabın: {q.options[s.chosen!].text}</div>
+                </div>
+              );
+            })}
           </section>
         ) : (
           answered.length > 0 && <p className="msg ok">Hepsi doğru!</p>
@@ -220,9 +288,10 @@ Model: ${target.model}` });
   }
 
   const slot = slots[current];
-  const { item, question } = slot;
+  const { question } = slot;
   const answered = slot.chosen !== undefined;
   const isLast = current + 1 >= slots.length;
+  const toTurkish = slot.item.direction === "en-tr";
   return (
     <div className="quiz-page">
       <div className="quiz-head">
@@ -238,21 +307,16 @@ Model: ${target.model}` });
       </div>
 
       <section className="quiz-card">
-        <div className="quiz-question">Bu cümlenin Türkçesi hangisidir?</div>
-        <p className="quiz-sentence">
-          {item.sentence.slice(0, item.start)}
-          <mark>{item.sentence.slice(item.start, item.end)}</mark>
-          {item.sentence.slice(item.end)}
-        </p>
+        <div className="quiz-question">{toTurkish ? "Bu cümlenin Türkçesi hangisidir?" : "Bu cümlenin İngilizcesi hangisidir?"}</div>
 
         {slot.state === "loading" || slot.state === "pending" ? (
-          <p className="muted">Soru hazırlanıyor… (güçlü model, biraz sürebilir)</p>
+          <p className="muted">Soru hazırlanıyor… (yapay zekâ yeni bir cümle kuruyor)</p>
         ) : slot.state === "error" ? (
           <div>
             <p className="msg error">Soru hazırlanamadı: {slot.error}</p>
             <div className="row">
               <button onClick={() => load(current)}>Tekrar dene</button>
-              <button className="secondary" onClick={skip}>
+              <button className="secondary" onClick={next}>
                 Bu soruyu atla
               </button>
             </div>
@@ -260,6 +324,7 @@ Model: ${target.model}` });
         ) : (
           question && (
             <>
+              <p className="quiz-sentence">{toTurkish ? <English question={question} /> : question.turkish}</p>
               <ol className="quiz-options">
                 {question.options.map((o, i) => {
                   const cls = !answered ? "" : o.correct ? "correct" : i === slot.chosen ? "wrong" : "dim";
@@ -275,21 +340,28 @@ Model: ${target.model}` });
                 })}
               </ol>
               {answered ? (
-                <div className="quiz-feedback">
-                  {slot.chosen === question.correctIndex ? (
-                    <span className="quiz-answer-right">Doğru!</span>
-                  ) : (
-                    <span className="quiz-answer-wrong">Yanlış. Doğru cevap: {LETTERS[question.correctIndex]}</span>
+                <>
+                  {!toTurkish && (
+                    <p className="quiz-target muted">
+                      Hedef kelime: <strong>{slot.item.term.lemma}</strong> — <English question={question} />
+                    </p>
                   )}
-                  <button onClick={next}>{isLast ? "Sonuçları gör" : "Sonraki soru"} (Enter)</button>
-                </div>
+                  <div className="quiz-feedback">
+                    {slot.chosen === question.correctIndex ? (
+                      <span className="quiz-answer-right">Doğru!</span>
+                    ) : (
+                      <span className="quiz-answer-wrong">Yanlış. Doğru cevap: {LETTERS[question.correctIndex]}</span>
+                    )}
+                    <button onClick={next}>{isLast ? "Sonuçları gör" : "Sonraki soru"} (Enter)</button>
+                  </div>
+                </>
               ) : (
                 <div className="quiz-tools">
                   <span className="muted">1-4 ya da A-D tuşlarıyla da seçebilirsin.</span>
                   <button
                     className="link-btn"
-                    onClick={() => load(current, true)}
-                    title="Şıklar hatalıysa (ör. iki doğru şık) soruyu yeniden üret"
+                    onClick={() => load(current, [question.english])}
+                    title="Şıklar hatalıysa (ör. iki doğru şık) başka bir cümleyle yeni soru üret"
                   >
                     Soruyu yenile
                   </button>

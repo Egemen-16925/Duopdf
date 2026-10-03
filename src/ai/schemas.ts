@@ -36,15 +36,24 @@ export function normalizeOption(text: string): string {
     .trim();
 }
 
+/**
+ * Kelime sorusu: model hedef kelimeyi yeni bir İngilizce cümlede kullanır, Türkçesini ve
+ * sorunun yönüne göre (Türkçe ya da İngilizce) 3 yanlış şık yazar.
+ */
 export const multipleChoiceSchema = z
   .object({
-    dogruCeviri: z.string().min(1),
+    cumle: z.string().min(1),
+    hedef: z.string().min(1),
+    turkce: z.string().min(1),
     celdiriciler: z.array(z.object({ metin: z.string().min(1), hata: z.string().min(1) })).length(3),
   })
   .superRefine((value, ctx) => {
-    const all = [value.dogruCeviri, ...value.celdiriciler.map((c) => c.metin)].map(normalizeOption);
+    if (!value.cumle.toLocaleLowerCase("en").includes(value.hedef.toLocaleLowerCase("en"))) {
+      ctx.addIssue({ code: "custom", message: `"hedef" (${value.hedef}) "cumle" içinde aynen geçmeli.` });
+    }
+    const all = [value.cumle, value.turkce, ...value.celdiriciler.map((c) => c.metin)].map(normalizeOption);
     if (new Set(all).size !== all.length) {
-      ctx.addIssue({ code: "custom", message: "Dört şık birbirinden farklı olmalı; çeldiriciler doğru çevirinin aynısı olamaz." });
+      ctx.addIssue({ code: "custom", message: "Şıklar birbirinden farklı olmalı; çeldiriciler doğru cevabın aynısı olamaz." });
     }
   });
 export type MultipleChoice = z.infer<typeof multipleChoiceSchema>;

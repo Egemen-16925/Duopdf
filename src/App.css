@@ -1560,3 +1560,43 @@ pre {
 .quiz-page > button {
   align-self: flex-start;
 }
+
+.quiz-scores h3 {
+  margin: 0 0 8px;
+}
+
+.quiz-score-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.quiz-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.quiz-score-row .term-score {
+  margin-left: auto;
+}
+
+.term-score {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.term-score .quiz-answer-right,
+.term-score .quiz-answer-wrong {
+  font-weight: 600;
+}
+
+.quiz-target {
+  margin: 12px 0 0;
+}

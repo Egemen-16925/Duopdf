@@ -110,7 +110,12 @@ export interface QuizAttemptRecord {
   id: string;
   /** "mcq": çoktan seçmeli (Faz 5); açık uçlu Faz 6'da gelecek. */
   kind: "mcq";
+  /** Soru yönü; eski kayıtlarda yoksa "en-tr". */
+  direction?: "en-tr" | "tr-en";
+  /** Sorudaki İngilizce cümle. */
   sentence: string;
+  /** Sorudaki cümlenin Türkçesi (yeni kayıtlarda). */
+  translation?: string;
   /** Cümlenin kararlı anahtarı (sentences tablosuyla aynı özet). */
   sentenceKey: string;
   /** Sorulan terimlerin kararlı anahtarları (TermRecord.key). */
