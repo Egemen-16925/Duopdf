@@ -24,7 +24,8 @@ function copyTesseractAssets(): Plugin {
     buildStart() {
       cpSync("node_modules/tesseract.js/dist/worker.min.js", "public/tesseract/worker.min.js");
       for (const file of readdirSync("node_modules/tesseract.js-core")) {
-        if (/^tesseract-core.*lstm\.(wasm|wasm\.js|js)$/.test(file)) {
+        // Çalışma dosyası yalnızca gömülü wasm içeren ".wasm.js" sürümlerini yükler (LSTM, SIMD'li/SIMD'siz).
+        if (/^tesseract-core.*lstm\.wasm\.js$/.test(file)) {
           cpSync(`node_modules/tesseract.js-core/${file}`, `public/tesseract/core/${file}`);
         }
       }
