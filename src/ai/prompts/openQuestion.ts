@@ -16,7 +16,7 @@ export interface OpenQuestionInput {
 /** Açık uçlu çeviri sorusu için cümle: kullanıcı bunu kendisi çevirecek. */
 export const openQuestionPrompt: PromptTemplate<OpenQuestionInput, OpenQuestion> = {
   id: "openQuestion",
-  version: 2,
+  version: 3,
   role: "strong",
   schema: openQuestionSchema,
   temperature: 0.9,

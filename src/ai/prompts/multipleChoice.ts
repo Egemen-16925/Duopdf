@@ -11,7 +11,7 @@ export type QuizLevel = "kolay" | "orta" | "zor";
 export function sentenceRule(level: QuizLevel): string {
   switch (level) {
     case "kolay":
-      return "- cumle: A2 düzeyinde, 6-10 kelimelik, kısa ve basit bir İngilizce cümle. Hedef kelime dışındaki bütün kelimeler çok yaygın günlük kelimeler olsun; geniş zaman ya da basit geçmiş zaman, tek yan cümlesiz yapı kullan.";
+      return "- cumle: A2 düzeyinde, 6-10 kelimelik, kısa ve basit bir İngilizce cümle. Hedef kelime zor olsa bile çevresindeki BÜTÜN kelimeler en yaygın 1000 günlük kelimeden olsun (ör. \"profitable\", \"significant\" gibi kelimeler kullanma); geniş zaman ya da basit geçmiş zaman, yan cümlesiz yapı kullan.";
     case "orta":
       return "- cumle: B1 düzeyinde, 8-14 kelimelik bir İngilizce cümle. Hedef kelime dışında yaygın kelimeler kullan; en fazla bir yan cümle olsun, ağır deyimlerden ve nadir kelimelerden kaçın.";
     case "zor":
@@ -49,7 +49,7 @@ const DISTRACTOR_RULES: Record<QuizDirection, string[]> = {
 
 export const multipleChoicePrompt: PromptTemplate<MultipleChoiceInput, MultipleChoice> = {
   id: "multipleChoice",
-  version: 3,
+  version: 4,
   role: "strong",
   schema: multipleChoiceSchema,
   // Her sınavda farklı cümleler çıksın.

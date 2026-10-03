@@ -17,6 +17,7 @@ import {
   quizStats,
   recordAttempt,
   recordOpenAttempt,
+  evaluationTone,
   wordUnderstood,
   type QuizItem,
   type QuizKindMode,
@@ -73,7 +74,6 @@ const KINDS: { kind: QuizKindMode; label: string }[] = [
   { kind: "mcq", label: "Çoktan seçmeli" },
   { kind: "open", label: "Çeviriyi ben yazayım" },
 ];
-const RESULT_LABELS: Record<Evaluation["sonuc"], string> = { dogru: "Doğru", kismen: "Kısmen doğru", yanlis: "Yanlış" };
 const ERROR_LABELS: Record<Evaluation["hatalar"][number]["tur"], string> = {
   anlam: "Anlam",
   dilbilgisi: "Dilbilgisi",
@@ -662,10 +662,11 @@ export function QuizPage({ target, fast, active }: Props) {
 
 /** Yazılı cevabın değerlendirmesi: sonuç, hatalar, düzeltilmiş çeviri. */
 function EvaluationView({ evaluation, toTurkish, question }: { evaluation: Evaluation; toTurkish: boolean; question: QuizQuestion }) {
+  const { tone, label } = evaluationTone(evaluation);
   return (
-    <div className={`quiz-eval ${evaluation.sonuc}`}>
+    <div className={`quiz-eval ${tone}`}>
       <div className="quiz-eval-head">
-        <strong>{RESULT_LABELS[evaluation.sonuc]}</strong>
+        <strong>{label}</strong>
         <span className="muted">{Math.round(evaluation.puan)} / 100</span>
       </div>
       {evaluation.hatalar.length > 0 && (

@@ -293,3 +293,13 @@ export async function recordOpenAttempt(
     correct: wordUnderstood(evaluation, item.term.lemma),
   });
 }
+
+/**
+ * Sonucun görünümü: 80 puan ve üstü yeşil (çeviride tam 100 almak zor; küçük farklar için
+ * "neredeyse doğru"), 80'in altındaki kısmen doğru sarı, yanlış kırmızı.
+ */
+export function evaluationTone(evaluation: { sonuc: Evaluation["sonuc"]; puan: number }): { tone: Evaluation["sonuc"]; label: string } {
+  if (evaluation.sonuc === "yanlis") return { tone: "yanlis", label: "Yanlış" };
+  if (evaluation.sonuc === "dogru") return { tone: "dogru", label: "Doğru" };
+  return evaluation.puan >= 80 ? { tone: "dogru", label: "Neredeyse doğru" } : { tone: "kismen", label: "Kısmen doğru" };
+}

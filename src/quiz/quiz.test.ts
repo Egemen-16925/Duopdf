@@ -12,6 +12,7 @@ import {
   buildQuestion,
   countEligible,
   evaluateAnswer,
+  evaluationTone,
   makeQuestion,
   pickQuizItems,
   pickReviewItems,
@@ -247,5 +248,14 @@ describe("difficulty", () => {
     const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
     expect(system).toContain("A2 düzeyinde, 6-10 kelimelik");
     await db.delete();
+  });
+});
+
+describe("evaluationTone", () => {
+  it("shows 80+ partial answers as green", () => {
+    expect(evaluationTone({ sonuc: "kismen", puan: 85 })).toEqual({ tone: "dogru", label: "Neredeyse doğru" });
+    expect(evaluationTone({ sonuc: "kismen", puan: 79 })).toEqual({ tone: "kismen", label: "Kısmen doğru" });
+    expect(evaluationTone({ sonuc: "dogru", puan: 70 }).tone).toBe("dogru");
+    expect(evaluationTone({ sonuc: "yanlis", puan: 90 }).tone).toBe("yanlis");
   });
 });
