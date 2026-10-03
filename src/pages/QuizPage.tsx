@@ -20,6 +20,7 @@ import {
   wordUnderstood,
   type QuizItem,
   type QuizKindMode,
+  type QuizLevel,
   type QuizMode,
   type QuizQuestion,
   type TermQuizStats,
@@ -78,6 +79,22 @@ const ERROR_LABELS: Record<Evaluation["hatalar"][number]["tur"], string> = {
   eksik: "Eksik",
   fazla: "Fazla",
 };
+const LEVELS: { level: QuizLevel; label: string }[] = [
+  { level: "kolay", label: "Kolay (A2)" },
+  { level: "orta", label: "Orta (B1)" },
+  { level: "zor", label: "Zor (B2-C1)" },
+];
+const LEVEL_KEY = "duopdf.quizLevel";
+
+function savedLevel(): QuizLevel {
+  try {
+    const v = localStorage.getItem(LEVEL_KEY);
+    return v === "kolay" || v === "orta" || v === "zor" ? v : "orta";
+  } catch {
+    return "orta";
+  }
+}
+
 const COUNTS = [5, 10, 15, 20];
 const LETTERS = ["A", "B", "C", "D"];
 /** Şu anki sorudan sonra kaç soru önceden hazırlansın. */
@@ -127,6 +144,7 @@ export function QuizPage({ target, fast, active }: Props) {
   const [mode, setMode] = useState<QuizMode>("mixed");
   const [kind, setKind] = useState<QuizKindMode>("mixed");
   const [count, setCount] = useState(10);
+  const [level, setLevel] = useState<QuizLevel>(savedLevel);
   const [phase, setPhase] = useState<"setup" | "running" | "done">("setup");
   const [isReview, setIsReview] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -174,7 +192,7 @@ export function QuizPage({ target, fast, active }: Props) {
     loading.current.add(index);
     patch(index, { state: "loading", error: undefined, question: undefined });
     try {
-      const question = await makeQuestion(db, target, slot.item, { avoid });
+      const question = await makeQuestion(db, target, slot.item, { avoid, level });
       if (run.current === myRun) patch(index, { state: "ready", question });
     } catch (e) {
       if (run.current === myRun) patch(index, { state: "error", error: describeAiError(e) });
@@ -337,6 +355,29 @@ export function QuizPage({ target, fast, active }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="quiz-setup-row">
+            <span className="quiz-setup-label">Zorluk</span>
+            <select
+              value={level}
+              onChange={(e) => {
+                const next = e.target.value as QuizLevel;
+                setLevel(next);
+                try {
+                  localStorage.setItem(LEVEL_KEY, next);
+                } catch {
+                  // tercih kaydedilemezse oturum boyunca geçerli
+                }
+              }}
+              aria-label="Zorluk"
+            >
+              {LEVELS.map((l) => (
+                <option key={l.level} value={l.level}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+            <span className="muted">Kelimenin kullanıldığı cümlenin uzunluğu ve düzeyi.</span>
           </div>
           <div className="quiz-setup-row">
             <span className="quiz-setup-label">Soru yönü</span>

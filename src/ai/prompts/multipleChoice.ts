@@ -4,6 +4,21 @@ import type { PromptTemplate } from "./types";
 /** "en-tr": İngilizce cümle, Türkçe şıklar. "tr-en": Türkçe cümle, İngilizce şıklar. */
 export type QuizDirection = "en-tr" | "tr-en";
 
+/** Soru cümlesinin zorluğu (hedef kelimenin kendisi değil, çevresindeki cümle). */
+export type QuizLevel = "kolay" | "orta" | "zor";
+
+/** Zorluğa göre cümle kuralı; her iki soru türünde aynı. */
+export function sentenceRule(level: QuizLevel): string {
+  switch (level) {
+    case "kolay":
+      return "- cumle: A2 düzeyinde, 6-10 kelimelik, kısa ve basit bir İngilizce cümle. Hedef kelime dışındaki bütün kelimeler çok yaygın günlük kelimeler olsun; geniş zaman ya da basit geçmiş zaman, tek yan cümlesiz yapı kullan.";
+    case "orta":
+      return "- cumle: B1 düzeyinde, 8-14 kelimelik bir İngilizce cümle. Hedef kelime dışında yaygın kelimeler kullan; en fazla bir yan cümle olsun, ağır deyimlerden ve nadir kelimelerden kaçın.";
+    case "zor":
+      return "- cumle: B2-C1 düzeyinde, 12-22 kelimelik bir İngilizce cümle. Yan cümle, edilgen yapı ya da kip gibi daha ileri dilbilgisi ve daha zengin kelimeler kullanabilirsin.";
+  }
+}
+
 export interface MultipleChoiceInput {
   lemma: string;
   /** Kullanıcının kaydettiği Türkçe anlam (boş olabilir). */
@@ -13,6 +28,7 @@ export interface MultipleChoiceInput {
   direction: QuizDirection;
   /** Bu kelime için daha önce sorulmuş cümleler; yenisi bunlara benzememeli. */
   avoid: string[];
+  level: QuizLevel;
 }
 
 const DISTRACTOR_RULES: Record<QuizDirection, string[]> = {
@@ -33,20 +49,22 @@ const DISTRACTOR_RULES: Record<QuizDirection, string[]> = {
 
 export const multipleChoicePrompt: PromptTemplate<MultipleChoiceInput, MultipleChoice> = {
   id: "multipleChoice",
-  version: 2,
+  version: 3,
   role: "strong",
   schema: multipleChoiceSchema,
   // Her sınavda farklı cümleler çıksın.
   temperature: 0.9,
   maxTokens: 2048,
-  build: ({ lemma, meaning, context, direction, avoid }) => [
+  build: ({ lemma, meaning, context, direction, avoid, level }) => [
     {
       role: "system",
       content: [
         "Sen İngilizce öğrenen Türk öğrenciler için çoktan seçmeli kelime sorusu hazırlayan bir öğretmensin.",
         "Görevin: hedef kelimeyi YENİ bir İngilizce cümlede kullanmak ve bu cümleyle 4 şıklı bir soru hazırlamak.",
         "Kurallar:",
-        "- cumle: hedef kelimeyi verilen anlamda kullanan, 8-20 kelimelik, doğal ve yeni bir İngilizce cümle. Belgedeki cümleyi ve kaçınılacak cümleleri tekrar etme; farklı bir konu ve bağlam seç (yazılım, iş, bilim, günlük hayat…).",
+        "- cumle: hedef kelimeyi verilen anlamda kullanan, doğal ve yeni bir İngilizce cümle. Belgedeki cümleyi ve kaçınılacak cümleleri tekrar etme; farklı bir konu ve bağlam seç (yazılım, iş, bilim, günlük hayat…).",
+        sentenceRule(level),
+        "- Şıklar da aynı düzeyde ve aynı uzunlukta olsun.",
         "- hedef: hedef kelimenin cumle içinde geçtiği hâli, harfi harfine (ör. \"ran\", \"carried out\").",
         "- turkce: cumlenin doğal, akıcı ve eksiksiz Türkçe çevirisi.",
         ...DISTRACTOR_RULES[direction],

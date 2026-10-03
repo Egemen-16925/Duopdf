@@ -1,6 +1,6 @@
 import { generate } from "../ai/aiClient";
 import { evaluateTranslationPrompt } from "../ai/prompts/evaluateTranslation";
-import { multipleChoicePrompt, type QuizDirection } from "../ai/prompts/multipleChoice";
+import { multipleChoicePrompt, type QuizDirection, type QuizLevel } from "../ai/prompts/multipleChoice";
 import { openQuestionPrompt } from "../ai/prompts/openQuestion";
 import type { Evaluation, MultipleChoice } from "../ai/schemas";
 import type { DuopdfDB, OccurrenceRecord, QuizAttemptRecord, TermRecord } from "../db/db";
@@ -10,7 +10,7 @@ import { sentenceKey } from "../learning/sentences";
 import type { AiTarget } from "../settings/providers";
 import { dueTerms, recordReview, type ReviewChange } from "./review";
 
-export type { QuizDirection };
+export type { QuizDirection, QuizLevel };
 /** Soru yönü ayarı: tek yön ya da karışık. */
 export type QuizMode = QuizDirection | "mixed";
 /** "mcq": çoktan seçmeli, "open": çeviriyi kullanıcı yazar. */
@@ -178,7 +178,7 @@ export async function makeQuestion(
   db: DuopdfDB,
   target: AiTarget,
   item: QuizItem,
-  opts: { avoid?: string[]; random?: () => number } = {},
+  opts: { avoid?: string[]; level?: QuizLevel; random?: () => number } = {},
 ): Promise<QuizQuestion> {
   const avoid = [...new Set([...(opts.avoid ?? []), ...(await recentSentences(db, item.term.key))])].slice(0, AVOID_COUNT);
   const input = {
@@ -187,6 +187,7 @@ export async function makeQuestion(
     ...(item.context ? { context: item.context } : {}),
     direction: item.direction,
     avoid,
+    level: opts.level ?? "orta",
   };
   if (item.kind === "mcq") return buildQuestion(await generate(target, multipleChoicePrompt, input), item.direction, opts.random);
   const value = await generate(target, openQuestionPrompt, input);

@@ -232,3 +232,20 @@ describe("pickReviewItems", () => {
     expect(items.map((i) => [i.term.lemma, i.kind])).toEqual([["run", "open"]]);
   });
 });
+
+describe("difficulty", () => {
+  it("tells the model the sentence level", async () => {
+    const db = new DuopdfDB("quiz-level");
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValueOnce({
+      status: 200,
+      text: async () => JSON.stringify({ choices: [{ message: { content: JSON.stringify(mc) } }] }),
+      headers: new Headers(),
+    });
+    const target = { profile: { id: "p", name: "T", baseUrl: "https://x.test/v1", apiKey: "k" }, model: "strong" };
+    await makeQuestion(db, target, { term: run, kind: "mcq", direction: "en-tr" }, { level: "kolay" });
+    const system = JSON.parse(fetchMock.mock.calls[0][1].body).messages[0].content;
+    expect(system).toContain("A2 düzeyinde, 6-10 kelimelik");
+    await db.delete();
+  });
+});

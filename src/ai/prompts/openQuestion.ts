@@ -1,5 +1,5 @@
 import { openQuestionSchema, type OpenQuestion } from "../schemas";
-import type { QuizDirection } from "./multipleChoice";
+import { sentenceRule, type QuizDirection, type QuizLevel } from "./multipleChoice";
 import type { PromptTemplate } from "./types";
 
 export interface OpenQuestionInput {
@@ -10,24 +10,26 @@ export interface OpenQuestionInput {
   direction: QuizDirection;
   /** Bu kelime için daha önce sorulmuş cümleler; yenisi bunlara benzememeli. */
   avoid: string[];
+  level: QuizLevel;
 }
 
 /** Açık uçlu çeviri sorusu için cümle: kullanıcı bunu kendisi çevirecek. */
 export const openQuestionPrompt: PromptTemplate<OpenQuestionInput, OpenQuestion> = {
   id: "openQuestion",
-  version: 1,
+  version: 2,
   role: "strong",
   schema: openQuestionSchema,
   temperature: 0.9,
   maxTokens: 1536,
-  build: ({ lemma, meaning, context, direction, avoid }) => [
+  build: ({ lemma, meaning, context, direction, avoid, level }) => [
     {
       role: "system",
       content: [
         "Sen İngilizce öğrenen Türk öğrenciler için çeviri alıştırması hazırlayan bir öğretmensin.",
         "Hedef kelimeyi YENİ bir İngilizce cümlede kullan. Öğrenci bu cümleyi kendisi çevirecek.",
         "Kurallar:",
-        "- cumle: hedef kelimeyi verilen anlamda kullanan, 8-18 kelimelik, doğal ve yeni bir İngilizce cümle. Belgedeki cümleyi ve kaçınılacak cümleleri tekrar etme; farklı bir konu ve bağlam seç.",
+        "- cumle: hedef kelimeyi verilen anlamda kullanan, doğal ve yeni bir İngilizce cümle. Belgedeki cümleyi ve kaçınılacak cümleleri tekrar etme; farklı bir konu ve bağlam seç.",
+        sentenceRule(level),
         "- Cümle tek anlamlı olsun; çevirisi tartışmalı deyimlerden ve çok nadir kelimelerden kaçın.",
         "- hedef: hedef kelimenin cumle içinde geçtiği hâli, harfi harfine.",
         "- turkce: cumlenin doğal ve eksiksiz Türkçe çevirisi (örnek doğru cevap).",
