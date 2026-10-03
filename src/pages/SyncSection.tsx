@@ -42,8 +42,9 @@ export function SyncSection() {
       {showClientForm && (
         <div className="sync-client">
           <p className="muted">
-            Bir kez, Google Cloud'da ücretsiz bir proje açıp "Masaüstü uygulaması" türünde bir OAuth istemcisi oluştur ve
-            kimliğini buraya gir.{" "}
+            Bir kez, Google Cloud'da ücretsiz bir proje açıp <strong>"Desktop app" (masaüstü uygulaması)</strong> türünde bir
+            OAuth istemcisi oluştur ve kimliğini buraya gir. "Web application" türü olursa Google "redirect_uri_mismatch"
+            hatası verir.{" "}
             <button className="link-btn" onClick={() => openUrl(CONSOLE_URL)}>
               Google Cloud Console'u aç
             </button>
