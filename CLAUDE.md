@@ -48,7 +48,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 5 — Çoktan seçmeli sınav
 - [x] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [x] Faz 7 — İstatistik, sesli okuma, son rötuşlar
-- [ ] Faz 7b — Bulut eşitleme (Google Drive)
+- [x] Faz 7b — Bulut eşitleme (Google Drive)
 - [ ] Faz 8 — Paketleme ve GitHub Release
 - [ ] Faz 9 — Android (isteğe bağlı)
 
@@ -362,3 +362,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-03: Sesli okuma: Web Speech API, yalnızca İngilizce sesler; ses ve hız Tercihler'de. Kelime/cümle pencerelerinde ve sınavda düğme; Türkçe → İngilizce soruda İngilizce cümle ancak cevaptan sonra okunur.
 - 2026-10-03: İstatistik sayfası: durum sayıları, günlük seri (sınav cevabı ya da yeni işaretlenen kelime olan günler; bugün çalışılmadıysa dünden sayılır), bugünkü tekrar, son 30 gün başarı, günlük cevap grafiği (tek seri, üzerine gelince ayrıntı, tablo görünümü), en çok yanlış yapılan kelimeler.
 - 2026-10-03: Kısayollar: F1 liste, Alt+1-5 sayfalar, Ctrl+O belge aç, Ctrl+W sekme kapat, Ctrl+Tab sekmeler arası. Belge listesi boşken "Nasıl başlanır?" rehberi.
+- 2026-10-03: Yazılı cevapta 80 puan ve üstü yeşil gösterilir ("Neredeyse doğru"); kolay düzeyde hedef dışındaki kelimeler en yaygın 1000 kelimeden istenir.
+- 2026-10-03: Google Drive eşitlemesi: masaüstü OAuth istemcisi (Egemen kendi Google Cloud projesinde oluşturur, kimlik ve gizli anahtar Ayarlar'dan girilir, DPAPI ile şifreli `sync.json`'da), PKCE + 127.0.0.1 loopback (Rust `oauth_listen`/`oauth_wait`), kapsamlar `openid email drive.appdata` (hassas değil; uygulama "Üretim" moduna alınınca oturum 7 günde düşmez).
+- 2026-10-03: Bulutta tek dosya `duopdf-sync.json` (appDataFolder): belgeler (hash, ad), terimler, geçişler (terim anahtarı + belge hash'i), çeviriler, çizimler, sınav cevapları, silme izleri. Birleştirme: terim/çeviri/çizimde yeni `updatedAt` kazanır, geçiş ve cevaplar birleşir, silme izi kaydı yalnızca kayıttan yeniyse siler. Önbellek, OCR, dosya yolları, son sayfa, API anahtarları gitmez.
+- 2026-10-03: Eşitleme zamanları: açılışta, açıkken 5 dakikada bir, kapanırken (en çok 8 sn; `core:window:allow-destroy` izni) ve "Şimdi eşitle". "Öğrenme verisini sil" bağlıyken buluttaki kopyayı da silmeyi sorar; aksi hâlde veriler bir sonraki eşitlemede geri gelir.
