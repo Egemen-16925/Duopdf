@@ -7,7 +7,21 @@ vi.mock("@tauri-apps/plugin-http", () => ({ fetch: (...args: unknown[]) => fetch
 import { multipleChoiceSchema } from "../ai/schemas";
 import { DuopdfDB, type OccurrenceRecord, type TermRecord } from "../db/db";
 import { patternFor } from "../learning/matcher";
-import { buildQuestion, countEligible, makeQuestion, pickQuizItems, quizStats, recordAttempt } from "./quiz";
+import { markTerm } from "../learning/terms";
+import {
+  buildQuestion,
+  countEligible,
+  evaluateAnswer,
+  makeQuestion,
+  pickQuizItems,
+  pickReviewItems,
+  quizStats,
+  recordAttempt,
+  recordOpenAttempt,
+  wordUnderstood,
+  type McqQuestion,
+  type OpenTask,
+} from "./quiz";
 
 function term(id: number, lemma: string, surface: string, status: TermRecord["status"] = "unknown"): TermRecord {
   return {
@@ -141,11 +155,11 @@ describe("with the database", () => {
     text: async () => JSON.stringify({ choices: [{ message: { content } }] }),
     headers: new Headers(),
   });
-  const item = { term: run, direction: "en-tr" as const, context: "We ran the tests before the release." };
+  const item = { term: run, kind: "mcq" as const, direction: "en-tr" as const, context: "We ran the tests before the release." };
 
   it("asks for a new sentence every time and tells the model which sentences to avoid", async () => {
     fetchMock.mockResolvedValue(completion(JSON.stringify(mc)));
-    const first = await makeQuestion(db, target, item);
+    const first = (await makeQuestion(db, target, item)) as McqQuestion;
     await recordAttempt(db, item, first, first.correctIndex, 1000);
     await makeQuestion(db, target, item);
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -160,10 +174,61 @@ describe("with the database", () => {
   it("counts right and wrong answers per word", async () => {
     const question = buildQuestion(mc, "en-tr", () => 0);
     const wrong = (question.correctIndex + 1) % 4;
-    const attempt = await recordAttempt(db, item, question, wrong, 1000);
+    const { attempt } = await recordAttempt(db, item, question, wrong, 1000);
     expect(attempt).toMatchObject({ kind: "mcq", direction: "en-tr", termKeys: ["run"], correct: false, sentence: mc.cumle, translation: mc.turkce });
     await recordAttempt(db, item, question, question.correctIndex, 2000);
     await recordAttempt(db, item, question, question.correctIndex, 3000);
     expect((await quizStats(db)).get("run")).toEqual({ count: 3, correct: 2, wrong: 1, lastAt: 3000 });
+  });
+
+  const evaluation = {
+    sonuc: "kismen" as const,
+    puan: 70,
+    hatalar: [{ tur: "dilbilgisi" as const, kullaniciIfadesi: "çalıştı", aciklama: "Zaman yanlış." }],
+    duzeltilmisCeviri: "Gece işi hatasız çalıştı.",
+    hedefKelimeler: [{ lemma: "run", dogruAnlasildi: true }],
+  };
+
+  it("builds an open question and evaluates the written answer against the shown sentence", async () => {
+    fetchMock
+      .mockResolvedValueOnce(completion(JSON.stringify({ cumle: mc.cumle, hedef: "ran", turkce: mc.turkce })))
+      .mockResolvedValueOnce(completion(JSON.stringify(evaluation)));
+    const open = { ...item, kind: "open" as const, direction: "tr-en" as const };
+    const task = (await makeQuestion(db, target, open)) as OpenTask;
+    expect(task).toMatchObject({ kind: "open", english: mc.cumle, turkish: mc.turkce });
+    expect(task.english.slice(task.highlight!.start, task.highlight!.end)).toBe("ran");
+    const result = await evaluateAnswer(target, open, task, "The nightly job runs without errors.");
+    expect(result.sonuc).toBe("kismen");
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body).messages[1].content;
+    expect(body).toContain(`Türkçe cümle: ${mc.turkce}`);
+    expect(body).toContain("Öğrencinin çevirisi: The nightly job runs without errors.");
+    expect(body).toContain(`Örnek çeviri: ${mc.cumle}`);
+  });
+
+  it("judges the target word separately from the whole sentence", () => {
+    expect(wordUnderstood(evaluation, "run")).toBe(true);
+    expect(wordUnderstood({ ...evaluation, hedefKelimeler: [{ lemma: "run", dogruAnlasildi: false }] }, "run")).toBe(false);
+    expect(wordUnderstood({ ...evaluation, sonuc: "yanlis" }, "run")).toBe(false);
+    expect(wordUnderstood({ ...evaluation, hedefKelimeler: [] }, "run")).toBe(false);
+  });
+
+  it("updates the word's review schedule after an answer", async () => {
+    const saved = await markTerm(db, { surface: "ran", lemma: "run", status: "unknown" }, 0);
+    const open = { term: saved, kind: "open" as const, direction: "en-tr" as const };
+    const task: OpenTask = { kind: "open", direction: "en-tr", english: mc.cumle, turkish: mc.turkce, highlight: null };
+    const { attempt, change } = await recordOpenAttempt(db, open, task, "Gece işi hatasız çalışıyor.", evaluation, 5000);
+    expect(attempt).toMatchObject({ kind: "open", result: "kismen", score: 70, correct: true, userAnswer: "Gece işi hatasız çalışıyor." });
+    expect(change).toMatchObject({ before: "unknown", after: "learning", review: { streak: 1, intervalDays: 1 } });
+    expect((await db.terms.get(saved.id))!.review.streak).toBe(1);
+  });
+});
+
+describe("pickReviewItems", () => {
+  it("asks only words whose review time has come", () => {
+    const now = 10 * 24 * 60 * 60 * 1000;
+    const due = { ...run, review: { streak: 0, intervalDays: 0, dueAt: now - 1 } };
+    const later = { ...carry, review: { streak: 1, intervalDays: 3, dueAt: now + 3 * 24 * 60 * 60 * 1000 } };
+    const items = pickReviewItems([due, later], occurrences, now, { count: 10, mode: "en-tr", kind: "open" });
+    expect(items.map((i) => [i.term.lemma, i.kind])).toEqual([["run", "open"]]);
   });
 });

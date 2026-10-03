@@ -15,7 +15,7 @@ export type SentenceTranslation = z.infer<typeof sentenceTranslationSchema>;
 
 export const evaluationSchema = z.object({
   sonuc: z.enum(["dogru", "kismen", "yanlis"]),
-  puan: z.number().min(0).max(100),
+  puan: z.coerce.number().min(0).max(100),
   hatalar: z.array(
     z.object({
       tur: z.enum(["anlam", "dilbilgisi", "kelime", "eksik", "fazla"]),
@@ -57,3 +57,17 @@ export const multipleChoiceSchema = z
     }
   });
 export type MultipleChoice = z.infer<typeof multipleChoiceSchema>;
+
+/** Açık uçlu soru: hedef kelimeyi kullanan yeni bir İngilizce cümle ve Türkçesi. */
+export const openQuestionSchema = z
+  .object({
+    cumle: z.string().min(1),
+    hedef: z.string().min(1),
+    turkce: z.string().min(1),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.cumle.toLocaleLowerCase("en").includes(value.hedef.toLocaleLowerCase("en"))) {
+      ctx.addIssue({ code: "custom", message: `"hedef" (${value.hedef}) "cumle" içinde aynen geçmeli.` });
+    }
+  });
+export type OpenQuestion = z.infer<typeof openQuestionSchema>;

@@ -6,6 +6,7 @@ import { refreshTerms, useTerms } from "../learning/store";
 import { deleteTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "../learning/terms";
 import { STATUS_LABELS } from "../learning/WordPopup";
 import { quizStats, type TermQuizStats } from "../quiz/quiz";
+import { describeDue } from "../quiz/review";
 
 interface Props {
   onGoTo(occurrence: OccurrenceRecord): void;
@@ -114,6 +115,9 @@ export function WordsPage({ onGoTo }: Props) {
                 <span className="term-meaning">{term.meaning || <span className="muted">anlam yok</span>}</span>
               </button>
               <QuizScore stats={scores.get(term.key)} />
+              <span className="muted term-due" title="Aralıklı tekrar: bu kelimenin sınavda yeniden sorulacağı gün">
+                tekrar: {describeDue(term.review.dueAt, Date.now())}
+              </span>
               <span className="muted term-count" title="Kaydedilen geçiş sayısı">
                 {counts.get(term.id) ?? 0} geçiş
               </span>

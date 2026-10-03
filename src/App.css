@@ -1626,3 +1626,103 @@ div.quiz-option {
   margin: 12px 0 0;
   font-size: 0.85rem;
 }
+
+.quiz-review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.quiz-review h3,
+.quiz-setup h3 {
+  margin: 0 0 4px;
+}
+
+.quiz-review p {
+  margin: 0;
+}
+
+.quiz-note {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.quiz-change {
+  font-size: 0.85rem;
+}
+
+.quiz-feedback {
+  flex-wrap: wrap;
+}
+
+.quiz-feedback > button {
+  margin-left: auto;
+}
+
+.quiz-open textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 1.05rem;
+}
+
+.quiz-eval {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quiz-eval.dogru {
+  border-left-color: var(--ok);
+}
+
+.quiz-eval.kismen {
+  border-left-color: var(--warn);
+}
+
+.quiz-eval.yanlis {
+  border-left-color: var(--bad);
+}
+
+.quiz-eval-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.quiz-eval.dogru .quiz-eval-head strong {
+  color: var(--ok);
+}
+
+.quiz-eval.kismen .quiz-eval-head strong {
+  color: var(--warn);
+}
+
+.quiz-eval.yanlis .quiz-eval-head strong {
+  color: var(--bad);
+}
+
+.quiz-eval-errors {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.quiz-eval-kind {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.quiz-eval-quote {
+  font-style: italic;
+}
+
+.term-due {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}

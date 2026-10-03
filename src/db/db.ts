@@ -108,8 +108,8 @@ export interface StrokeRecord {
 export interface QuizAttemptRecord {
   /** Cihazdan bağımsız kimlik (UUID). */
   id: string;
-  /** "mcq": çoktan seçmeli (Faz 5); açık uçlu Faz 6'da gelecek. */
-  kind: "mcq";
+  /** "mcq": çoktan seçmeli, "open": kullanıcı çeviriyi kendisi yazar. */
+  kind: "mcq" | "open";
   /** Soru yönü; eski kayıtlarda yoksa "en-tr". */
   direction?: "en-tr" | "tr-en";
   /** Sorudaki İngilizce cümle. */
@@ -120,10 +120,16 @@ export interface QuizAttemptRecord {
   sentenceKey: string;
   /** Sorulan terimlerin kararlı anahtarları (TermRecord.key). */
   termKeys: string[];
-  /** Gösterilen şıklar, gösterildiği sırayla. */
-  options: string[];
-  correctIndex: number;
-  chosenIndex: number;
+  /** Çoktan seçmelide gösterilen şıklar (gösterildiği sırayla), doğru ve seçilen şık. */
+  options?: string[];
+  correctIndex?: number;
+  chosenIndex?: number;
+  /** Açık uçluda kullanıcının yazdığı çeviri ve değerlendirme. */
+  userAnswer?: string;
+  result?: "dogru" | "kismen" | "yanlis";
+  score?: number;
+  feedback?: unknown;
+  /** Hedef kelime doğru bilindi mi (istatistik ve aralıklı tekrar bunu kullanır). */
   correct: boolean;
   createdAt: number;
   updatedAt: number;
