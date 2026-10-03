@@ -125,6 +125,7 @@ export function attachGlow(opts: GlowOptions): () => void {
     e.preventDefault();
     e.stopPropagation();
     capture(container, e.pointerId);
+    window.getSelection()?.removeAllRanges();
     pointerId = e.pointerId;
     cancelAnimationFrame(fadeFrame);
     points = [{ x: e.clientX, y: e.clientY }];
@@ -149,7 +150,15 @@ export function attachGlow(opts: GlowOptions): () => void {
     fadeOut();
   };
 
+  // Chromium, pointerdown engellense de fareyle sürüklemede metin seçimine başlayabiliyor;
+  // fosforlu kalem açıkken seçim hiç başlamasın.
+  const noSelect = (e: Event) => {
+    if (active()) e.preventDefault();
+  };
+
   container.addEventListener("pointerdown", onDown, true);
+  container.addEventListener("mousedown", noSelect, true);
+  container.addEventListener("selectstart", noSelect, true);
   container.addEventListener("pointermove", onMove, true);
   container.addEventListener("pointerup", onUp, true);
   container.addEventListener("pointercancel", onUp, true);
@@ -158,6 +167,8 @@ export function attachGlow(opts: GlowOptions): () => void {
     cancelAnimationFrame(fadeFrame);
     container.classList.remove("glow-mode");
     container.removeEventListener("pointerdown", onDown, true);
+    container.removeEventListener("mousedown", noSelect, true);
+    container.removeEventListener("selectstart", noSelect, true);
     container.removeEventListener("pointermove", onMove, true);
     container.removeEventListener("pointerup", onUp, true);
     container.removeEventListener("pointercancel", onUp, true);
