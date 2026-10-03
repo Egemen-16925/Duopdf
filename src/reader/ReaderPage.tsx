@@ -445,6 +445,7 @@ export function ReaderPage({ ai, ref }: Props) {
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                       onAiRead={(page) => t.content.kind === "pdf" && readPdfPage(t, "text", t.content.pdf, page)}
                       docHash={t.record.hash}
+                      docName={t.record.name}
                       inkView="text"
                     />
                   ) : t.content.kind === "image" ? (
@@ -454,6 +455,7 @@ export function ReaderPage({ ai, ref }: Props) {
                       jump={t.jump?.view === "text" ? t.jump : undefined}
                       onAiRead={() => t.content.kind === "image" && readImageBlob(t, t.content.image.blob)}
                       docHash={t.record.hash}
+                      docName={t.record.name}
                     />
                   ) : (
                     <ReflowViewer
@@ -480,6 +482,7 @@ export function ReaderPage({ ai, ref }: Props) {
                       jump={t.jump?.view === "original" ? t.jump : undefined}
                       onAiRead={(page) => t.original && readPdfPage(t, "original", t.original, page)}
                       docHash={t.record.hash}
+                      docName={t.record.name}
                       inkView="original"
                     />
                     </ErrorBoundary>

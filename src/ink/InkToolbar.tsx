@@ -1,13 +1,15 @@
+import { useEffect, useState } from "react";
 import type { InkHandle } from "./useInk";
 import { INK_COLORS, INK_SIZES, setInkTools, useInkTools, type InkSize, type InkTool } from "./tools";
 
 interface Props {
   /** Çizim yüzeyi yoksa (akan metin) yalnızca okuma ve parlak kalem gösterilir. */
   ink: InkHandle;
-  /** "Çizimli PDF" dışa aktarma. */
-  onExport?(): void;
-  exporting?: boolean;
+  /** "Çizimli PDF": kaydedilen dosyanın yolunu döner, vazgeçilirse null. */
+  onExport?(): Promise<string | null>;
 }
+
+type ExportStatus = { kind: "busy" } | { kind: "ok"; path: string } | { kind: "error"; text: string } | null;
 
 const TOOLS: { tool: InkTool; label: string; title: string; drawing: boolean }[] = [
   { tool: "select", label: "Oku", title: "Kelimeye tıkla ya da metin seç", drawing: false },
@@ -18,8 +20,28 @@ const TOOLS: { tool: InkTool; label: string; title: string; drawing: boolean }[]
 
 const SIZE_LABELS: Record<InkSize, string> = { ince: "İnce", orta: "Orta", kalın: "Kalın" };
 
-export function InkToolbar({ ink, onExport, exporting }: Props) {
+export function InkToolbar({ ink, onExport }: Props) {
   const { tool, color, size } = useInkTools();
+  const [status, setStatus] = useState<ExportStatus>(null);
+
+  // Sonuç birkaç saniye görünsün.
+  useEffect(() => {
+    if (status?.kind !== "ok" && status?.kind !== "error") return;
+    const timer = window.setTimeout(() => setStatus(null), status.kind === "ok" ? 5000 : 10000);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  async function runExport() {
+    if (!onExport) return;
+    setStatus({ kind: "busy" });
+    try {
+      const path = await onExport();
+      setStatus(path ? { kind: "ok", path } : null);
+    } catch (e) {
+      setStatus({ kind: "error", text: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
   const canDraw = !!ink.surface;
   // Çizim yüzeyi olmayan görünümde kalem/silgi seçiliyse "Oku" gibi davranır.
   const current = !canDraw && (tool === "pen" || tool === "eraser") ? "select" : tool;
@@ -70,10 +92,21 @@ export function InkToolbar({ ink, onExport, exporting }: Props) {
             ↷
           </button>
           {onExport && (
-            <button className="secondary" onClick={onExport} disabled={exporting} title="Çizimleri belgenin üstüne işleyip PDF olarak kaydet">
-              {exporting ? "Kaydediliyor…" : "Çizimli PDF"}
+            <button
+              className="secondary"
+              onClick={runExport}
+              disabled={status?.kind === "busy"}
+              title="Çizimleri belgenin bir kopyasına işleyip PDF olarak kaydet (asıl dosya değişmez)"
+            >
+              {status?.kind === "busy" ? "Kaydediliyor…" : "Çizimli PDF"}
             </button>
           )}
+          {status?.kind === "ok" && (
+            <span className="ink-status muted" title={status.path}>
+              Kaydedildi
+            </span>
+          )}
+          {status?.kind === "error" && <span className="ink-status error-text">{status.text}</span>}
         </>
       )}
     </div>

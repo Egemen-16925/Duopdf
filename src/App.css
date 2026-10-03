@@ -1342,3 +1342,11 @@ pre {
   justify-content: flex-end;
   gap: 8px;
 }
+
+.ink-status {
+  font-size: 0.85rem;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

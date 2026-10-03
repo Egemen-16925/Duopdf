@@ -4,6 +4,7 @@ import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
 import { InkToolbar } from "../ink/InkToolbar";
+import { inkedPdfFromImage, saveInkedPdf } from "../ink/exportPdf";
 import { readingToolActive, useInk } from "../ink/useInk";
 import { imageKey, ocrWithCache } from "../ocr/cache";
 import { prepareImage, recognizeImage } from "../ocr/engine";
@@ -19,6 +20,8 @@ interface Props {
   onAiRead?(): void;
   /** Verilirse resme çizilebilir (çizimler bu belgeye bağlı saklanır). */
   docHash?: string;
+  /** Dışa aktarılan çizimli PDF'in önerilen adı için. */
+  docName?: string;
 }
 
 export type OcrStatus = { state: "reading" } | { state: "done"; words: number } | { state: "error"; message: string };
@@ -31,7 +34,7 @@ export function ocrStatusText(status: OcrStatus): string {
 
 const ZOOMS = [0.5, 0.75, 1, 1.5, 2];
 
-export function ImageViewer({ image, onPick, jump, onAiRead, docHash }: Props) {
+export function ImageViewer({ image, onPick, jump, onAiRead, docHash, docName }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const onPickRef = useRef(onPick);
@@ -143,6 +146,12 @@ export function ImageViewer({ image, onPick, jump, onAiRead, docHash }: Props) {
     if (jump && status.state === "done" && layerRef.current) flashSentence(layerRef.current, "pdf", jump.sentence);
   }, [jump?.nonce, status.state]);
 
+  async function exportPdf(): Promise<string | null> {
+    const strokes = (await ink.surface?.allStrokes()) ?? [];
+    if (strokes.length === 0) throw new Error("Bu resimde henüz çizim yok.");
+    return saveInkedPdf(docName ?? "resim", await inkedPdfFromImage(image.blob, image.width, image.height, strokes));
+  }
+
   const zoomValue = zoom === "fit" ? "fit" : String(zoom);
   const pageStyle = {
     width: image.width * scale,
@@ -180,7 +189,7 @@ export function ImageViewer({ image, onPick, jump, onAiRead, docHash }: Props) {
           </button>
         )}
         <span className="toolbar-sep" />
-        <InkToolbar ink={ink} />
+        <InkToolbar ink={ink} onExport={exportPdf} />
       </div>
       <div ref={scrollRef} className="image-scroll">
         <div ref={pageRef} className="image-page" style={pageStyle}>

@@ -8,6 +8,7 @@ import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
 import { pickFromPointer, type Pick } from "../learning/pick";
 import { InkToolbar } from "../ink/InkToolbar";
+import { inkedPdfFromPdf, saveInkedPdf } from "../ink/exportPdf";
 import { readingToolActive, useInk } from "../ink/useInk";
 import type { StrokeRecord } from "../db/db";
 import { PdfPageOcr } from "../ocr/pdfPages";
@@ -27,6 +28,8 @@ interface Props {
   /** Verilirse sayfalara çizilebilir: çizimler bu belgeye ve görünüme bağlı saklanır. */
   docHash?: string;
   inkView?: StrokeRecord["view"];
+  /** Dışa aktarılan çizimli PDF'in önerilen adı için. */
+  docName?: string;
 }
 
 const ZOOM_PRESETS: { value: string; label: string }[] = [
@@ -39,7 +42,7 @@ const ZOOM_PRESETS: { value: string; label: string }[] = [
   { value: "2", label: "%200" },
 ];
 
-export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, onAiRead, docHash, inkView }: Props) {
+export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey, onAiRead, docHash, inkView, docName }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const pdfViewer = useRef<PDFViewer | null>(null);
@@ -213,6 +216,12 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
     setPageInput(String(viewer.currentPageNumber));
   }
 
+  async function exportPdf(): Promise<string | null> {
+    const strokes = (await ink.surface?.allStrokes()) ?? [];
+    if (strokes.length === 0) throw new Error("Bu görünümde henüz çizim yok.");
+    return saveInkedPdf(docName ?? "belge", await inkedPdfFromPdf(await pdf.getData(), strokes));
+  }
+
   function setZoom(value: string) {
     if (pdfViewer.current) pdfViewer.current.currentScaleValue = value;
   }
@@ -273,7 +282,7 @@ export function PdfViewer({ pdf, initialPage, onPageChange, onPick, jump, ocrKey
           </>
         )}
         <span className="toolbar-sep" />
-        <InkToolbar ink={ink} />
+        <InkToolbar ink={ink} onExport={exportPdf} />
       </div>
       <div className="viewer-wrap">
         <div ref={containerRef} className="viewer-container">
