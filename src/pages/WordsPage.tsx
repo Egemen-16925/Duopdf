@@ -1,3 +1,4 @@
+import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { db, type DocumentRecord, type OccurrenceRecord, type TermRecord } from "../db/db";
 import type { TermStatus } from "../learning/matcher";
@@ -52,7 +53,12 @@ export function WordsPage({ onGoTo }: Props) {
   }
 
   async function remove(term: TermRecord) {
-    if (!confirm(`"${term.lemma}" ve kayıtlı geçişleri silinsin mi?`)) return;
+    const ok = await askConfirm({
+      title: `"${term.lemma}" kelime listenden silinsin mi?`,
+      message: "Kelimenin geçtiği yerlerin kaydı da silinir.",
+      dontAskKey: "deleteTerm",
+    });
+    if (!ok) return;
     await deleteTerm(db, term.id);
     if (expanded === term.id) setExpanded(null);
     await refreshTerms();

@@ -1276,3 +1276,69 @@ pre {
   flex-direction: column;
   gap: 4px;
 }
+
+.prefs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+.prefs-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Uygulama içi onay penceresi */
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm-dialog {
+  width: min(440px, 100%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.confirm-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.confirm-message {
+  margin: 0 0 12px;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+.confirm-dont-ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+
+.confirm-dont-ask input {
+  width: auto;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

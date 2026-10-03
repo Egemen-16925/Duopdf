@@ -1,3 +1,4 @@
+import { askConfirm } from "../ui/confirm";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useRef, useState } from "react";
 import { listModels, testConnection } from "../ai/aiClient";
@@ -12,7 +13,7 @@ import {
 } from "../settings/providers";
 import { BackupSection } from "./BackupSection";
 import { ModelInput } from "./ModelInput";
-import { PenSection } from "./PenSection";
+import { PrefsSection } from "./PrefsSection";
 
 interface Props {
   settings: ProviderSettings;
@@ -151,7 +152,11 @@ export function SettingsPage(props: Props) {
 
   async function remove() {
     if (settings.profiles.length <= 1) return;
-    if (!confirm(`"${saved.name}" sağlayıcısı silinsin mi? Ona bağlı roller ilk sağlayıcıya döner. Öğrenme verilerin etkilenmez.`)) return;
+    const ok = await askConfirm({
+      title: `"${saved.name}" sağlayıcısı silinsin mi?`,
+      message: "Kayıtlı API anahtarı da silinir. Ona bağlı roller ilk sağlayıcıya döner. Öğrenme verilerin etkilenmez.",
+    });
+    if (!ok) return;
     const next = removeProfile(settings, saved.id);
     await onChange(next);
     setSelectedId(next.profiles[0].id);
@@ -273,7 +278,7 @@ export function SettingsPage(props: Props) {
           {status && <p className={`msg ${status.kind}`}>{status.text}</p>}
         </section>
 
-        <PenSection />
+        <PrefsSection />
 
         <BackupSection />
       </div>

@@ -4,14 +4,17 @@ import { useSyncExternalStore } from "react";
 export interface Prefs {
   /** Kalem modunda parmak da çizsin mi? Kapalıyken parmak kaydırır/yakınlaştırır, yalnızca kalem çizer. */
   fingerDraw: boolean;
+  /** "Bir daha sorma" denmiş onaylar (ör. "deleteTerm"). */
+  skipConfirm: Record<string, boolean>;
 }
 
 const KEY = "duopdf.prefs";
-const DEFAULTS: Prefs = { fingerDraw: false };
+const DEFAULTS: Prefs = { fingerDraw: false, skipConfirm: {} };
 
 function read(): Prefs {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
+    return { ...DEFAULTS, ...saved, skipConfirm: { ...saved.skipConfirm } };
   } catch {
     return DEFAULTS;
   }

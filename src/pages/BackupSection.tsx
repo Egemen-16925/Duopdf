@@ -1,3 +1,4 @@
+import { askConfirm } from "../ui/confirm";
 import { useState } from "react";
 import { db } from "../db/db";
 import { clearLearningData, importLearningData, summarize, type BackupSummary } from "../learning/backup";
@@ -36,7 +37,12 @@ export function BackupSection() {
       const backup = await readBackupFile();
       if (!backup) return;
       const summary = summarize(backup);
-      if (!confirm(`Yedekte ${describe(summary)} var. Şu anki öğrenme verin bununla DEĞİŞTİRİLECEK. Devam edilsin mi?`)) return;
+      const ok = await askConfirm({
+        title: "Yedek içe aktarılsın mı?",
+        message: `Yedekte ${describe(summary)} var. Şu anki öğrenme verin bununla DEĞİŞTİRİLECEK.`,
+        confirmLabel: "İçe aktar",
+      });
+      if (!ok) return;
       await importLearningData(db, backup);
       await refreshTerms();
       setStatus({ kind: "ok", text: `İçe aktarıldı: ${describe(summary)}. Açık belgeleri kapatıp yeniden açman gerekebilir.` });
@@ -44,8 +50,13 @@ export function BackupSection() {
 
   const doClear = () =>
     run(async () => {
-      if (!confirm("Tüm öğrenme verisi (kelimeler, geçişler, son açılanlar, çeviri önbelleği) silinsin mi?")) return;
-      if (!confirm("Bu işlem geri alınamaz. Önce yedek aldığından emin misin? Silmek için Tamam'a bas.")) return;
+      const ok = await askConfirm({
+        title: "Tüm öğrenme verisi silinsin mi?",
+        message:
+          "Kelimeler, geçişler, çeviriler, çizimler, son açılanlar ve yapay zekâ önbelleği silinir. Bu işlem geri alınamaz; önce yedek aldığından emin ol.",
+        confirmLabel: "Hepsini sil",
+      });
+      if (!ok) return;
       await clearLearningData(db);
       await refreshTerms();
       setStatus({ kind: "info", text: "Öğrenme verisi silindi. Sağlayıcı ayarların duruyor." });

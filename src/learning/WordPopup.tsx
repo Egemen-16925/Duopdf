@@ -1,3 +1,4 @@
+import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generate } from "../ai/aiClient";
 import { AiError } from "../ai/errors";
@@ -94,7 +95,13 @@ export function WordPopup({ pick, location, target, onClose, onTranslateSentence
   }
 
   async function remove() {
-    if (!existing || !confirm(`"${existing.lemma}" kelime listenden silinsin mi?`)) return;
+    if (!existing) return;
+    const ok = await askConfirm({
+      title: `"${existing.lemma}" kelime listenden silinsin mi?`,
+      message: "Kelimenin geçtiği yerlerin kaydı da silinir.",
+      dontAskKey: "deleteTerm",
+    });
+    if (!ok) return;
     await deleteTerm(db, existing.id);
     await refreshTerms();
     onClose();

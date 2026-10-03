@@ -6,6 +6,7 @@ import { ModelTestPage } from "./pages/ModelTestPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
+import { ConfirmHost } from "./ui/confirm";
 import { allTargets, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
 type Page = "reader" | "words" | "settings" | "modelTest";
@@ -90,6 +91,7 @@ function App() {
           </main>
         )}
       </div>
+      <ConfirmHost />
     </div>
   );
 }

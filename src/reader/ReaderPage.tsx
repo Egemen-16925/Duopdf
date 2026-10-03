@@ -1,3 +1,4 @@
+import { askConfirm } from "../ui/confirm";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
@@ -287,7 +288,12 @@ export function ReaderPage({ ai, ref }: Props) {
   }
 
   async function clearHistory() {
-    if (!confirm("Son açılanlar listesi temizlensin mi? Belgeler ve öğrenme verilerin silinmez.")) return;
+    const ok = await askConfirm({
+      title: "Son açılanlar listesi temizlensin mi?",
+      message: "Belgeler ve öğrenme verilerin silinmez.",
+      confirmLabel: "Temizle",
+    });
+    if (!ok) return;
     await clearRecent(db);
     refreshRecent();
   }
