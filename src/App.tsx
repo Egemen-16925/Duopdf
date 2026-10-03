@@ -5,17 +5,19 @@ import { refreshTerms } from "./learning/store";
 import { ModelTestPage } from "./pages/ModelTestPage";
 import { QuizPage } from "./pages/QuizPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { StatsPage } from "./pages/StatsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
 import { ConfirmHost } from "./ui/confirm";
 import { allTargets, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
 
-type Page = "reader" | "words" | "quiz" | "settings" | "modelTest";
+type Page = "reader" | "words" | "quiz" | "stats" | "settings" | "modelTest";
 
 const NAV: { id: Page; label: string }[] = [
   { id: "reader", label: "Okuyucu" },
   { id: "words", label: "Kelimeler" },
   { id: "quiz", label: "Sınav" },
+  { id: "stats", label: "İstatistik" },
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
@@ -82,6 +84,7 @@ function App() {
           <main className="content page-layer">
             {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
             {page === "words" && <WordsPage onGoTo={goToOccurrence} />}
+            {page === "stats" && <StatsPage active onGo={setPage} />}
             {settings && page === "settings" && (
               <SettingsPage
                 settings={settings}
