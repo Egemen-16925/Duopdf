@@ -43,6 +43,12 @@ interface Tab {
 export interface ReaderHandle {
   /** Belgeyi açar (gerekirse) ve kelimenin geçtiği cümleye gider. */
   openAt(occurrence: OccurrenceRecord): Promise<void>;
+  /** Dosya seçme penceresini açar (Ctrl+O). */
+  openFile(): void;
+  /** Etkin sekmeyi kapatır (Ctrl+W). */
+  closeActiveTab(): void;
+  /** Sonraki/önceki sekmeye geçer (Ctrl+Tab); belgeler listesi de bir sekme sayılır. */
+  cycleTab(step: 1 | -1): void;
 }
 
 interface Props {
@@ -244,6 +250,17 @@ export function ReaderPage({ ai, ref }: Props) {
       if (!tab) return;
       if (occ.view === "original" && tab.view !== "original") await setView(tab, "original");
       patchTab(id, { jump: { page: occ.page, sentence: occ.sentence, view: occ.view, nonce: Date.now() } });
+    },
+    openFile() {
+      if (!loading) pickAndOpen();
+    },
+    closeActiveTab() {
+      if (activeId !== null) closeTab(activeId);
+    },
+    cycleTab(step) {
+      const ids: (number | null)[] = [null, ...tabsRef.current.map((t) => t.record.id)];
+      const index = ids.indexOf(activeId);
+      setActiveId(ids[(index + step + ids.length) % ids.length]);
     },
   }));
 
