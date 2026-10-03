@@ -1,8 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/plugin-store", () => ({ load: vi.fn() }));
+const storeData = new Map<string, unknown>();
+const fakeStore = {
+  get: async (key: string) => storeData.get(key),
+  set: async (key: string, value: unknown) => void storeData.set(key, JSON.parse(JSON.stringify(value))),
+  delete: async (key: string) => void storeData.delete(key),
+  save: async () => {},
+};
+vi.mock("@tauri-apps/plugin-store", () => ({ load: async () => fakeStore }));
+// Sahte DPAPI: gerçek şifreleme Rust testlerinde (src-tauri/src/secret.rs) denetleniyor.
+const invokeMock = vi.fn(async (cmd: string, args: any) => {
+  if (cmd === "protect_secret") return `dpapi:${btoa(args.plain)}`;
+  if (cmd === "unprotect_secret") {
+    if (args.data === "dpapi:other-machine") throw "çözülemedi";
+    return atob(args.data.slice(6));
+  }
+  throw new Error(cmd);
+});
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (cmd: string, args: unknown) => invokeMock(cmd, args) }));
 
-import { allTargets, normalizeSettings, removeProfile, targetFor, type ProviderSettings } from "./providers";
+import {
+  allTargets,
+  loadProviderSettings,
+  normalizeSettings,
+  removeProfile,
+  saveProviderSettings,
+  targetFor,
+  type ProviderSettings,
+} from "./providers";
 
 const nvidia = { id: "a", name: "NVIDIA", baseUrl: "https://integrate.api.nvidia.com/v1", apiKey: "k1" };
 const router = { id: "b", name: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", apiKey: "k2" };
@@ -95,5 +120,44 @@ describe("fallback targets", () => {
     expect(s.roles.fast.fallback).toEqual({ profileId: "b", model: "m2" });
     expect(s.roles.strong.fallback).toBeUndefined();
     expect(removeProfile(s, "b").roles.fast.fallback).toBeNull();
+  });
+});
+
+describe("stored API keys", () => {
+  it("never writes the key as plain text and reads it back", async () => {
+    storeData.clear();
+    await saveProviderSettings({
+      profiles: [nvidia],
+      roles: { fast: { profileId: "a", model: "m" }, strong: { profileId: "a", model: "" }, vision: { profileId: "a", model: "" } },
+    });
+    const written = JSON.stringify(storeData.get("profiles"));
+    expect(written).not.toContain('"k1"');
+    expect(written).toContain("apiKeyEnc");
+    const loaded = await loadProviderSettings();
+    expect(loaded.profiles[0].apiKey).toBe("k1");
+  });
+
+  it("encrypts plain keys left by older versions on load", async () => {
+    storeData.clear();
+    storeData.set("profiles", [router]);
+    const loaded = await loadProviderSettings();
+    expect(loaded.profiles[0].apiKey).toBe("k2");
+    expect(JSON.stringify(storeData.get("profiles"))).not.toContain('"k2"');
+  });
+
+  it("refuses to save when encryption gives an unexpected answer instead of dropping the key", async () => {
+    storeData.clear();
+    const fresh = { ...router, apiKey: "never-encrypted-before" };
+    storeData.set("profiles", [fresh]);
+    invokeMock.mockResolvedValueOnce(undefined as unknown as string);
+    await expect(loadProviderSettings()).rejects.toThrow("şifrelenemedi");
+    expect(storeData.get("profiles")).toEqual([fresh]);
+  });
+
+  it("leaves the key empty when it cannot be decrypted on this machine", async () => {
+    storeData.clear();
+    storeData.set("profiles", [{ id: "a", name: "NVIDIA", baseUrl: nvidia.baseUrl, apiKeyEnc: "dpapi:other-machine" }]);
+    const loaded = await loadProviderSettings();
+    expect(loaded.profiles[0].apiKey).toBe("");
   });
 });

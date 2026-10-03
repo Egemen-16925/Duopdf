@@ -1,4 +1,5 @@
 mod office;
+mod secret;
 
 use std::path::Path;
 
@@ -108,6 +109,8 @@ pub fn run() {
             write_backup,
             read_backup,
             write_pdf,
+            secret::protect_secret,
+            secret::unprotect_secret,
             office::office_available,
             office::convert_with_office
         ])

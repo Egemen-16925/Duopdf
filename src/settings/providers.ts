@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { load, type Store } from "@tauri-apps/plugin-store";
 
 /**
@@ -151,20 +152,69 @@ function getStore(): Promise<Store> {
   return storePromise;
 }
 
+/** Diskteki profil: anahtar şifreli (`apiKeyEnc`) ya da eski sürümlerden kalma düz metin (`apiKey`). */
+interface StoredProfile extends Omit<LegacyProfile, "apiKey"> {
+  apiKey?: string;
+  apiKeyEnc?: string;
+}
+
+/** Aynı anahtar her kayıtta yeniden şifrelenmesin (DPAPI çıktısı her seferinde farklıdır). */
+const encrypted = new Map<string, string>();
+
+async function encryptKey(apiKey: string): Promise<Pick<StoredProfile, "apiKey" | "apiKeyEnc">> {
+  if (!apiKey) return {};
+  const known = encrypted.get(apiKey);
+  if (known) return { apiKeyEnc: known };
+  try {
+    const enc = await invoke<string>("protect_secret", { plain: apiKey });
+    // Beklenmeyen bir yanıt anahtarı sessizce silmesin.
+    if (typeof enc !== "string" || !enc.startsWith("dpapi:")) throw new Error("beklenmeyen yanıt");
+    encrypted.set(apiKey, enc);
+    return { apiKeyEnc: enc };
+  } catch (e) {
+    // Şifrelemesi henüz olmayan platformlar (Android, Faz 9) düz metinle çalışmaya devam eder.
+    if (String(e) === "UNSUPPORTED") return { apiKey };
+    throw new Error(`API anahtarı şifrelenemedi: ${e}`);
+  }
+}
+
+async function decryptKeys(stored: StoredProfile[] | undefined | null): Promise<LegacyProfile[] | undefined> {
+  if (!stored) return undefined;
+  return Promise.all(
+    stored.map(async ({ apiKeyEnc, apiKey, ...rest }) => {
+      if (!apiKeyEnc) return { ...rest, apiKey: apiKey ?? "" };
+      try {
+        const plain = await invoke<string>("unprotect_secret", { data: apiKeyEnc });
+        if (typeof plain !== "string") throw new Error("beklenmeyen yanıt");
+        encrypted.set(plain, apiKeyEnc);
+        return { ...rest, apiKey: plain };
+      } catch (e) {
+        // Başka bir bilgisayardan/kullanıcıdan kopyalanmış dosya: anahtar yeniden girilmeli.
+        console.warn(`${rest.name}: API anahtarı çözülemedi`, e);
+        return { ...rest, apiKey: "" };
+      }
+    }),
+  );
+}
+
 export async function loadProviderSettings(): Promise<ProviderSettings> {
   const store = await getStore();
   const settings = normalizeSettings(
-    await store.get<LegacyProfile[]>("profiles"),
+    await decryptKeys(await store.get<StoredProfile[]>("profiles")),
     await store.get<Record<ModelRole, RoleAssignment>>("roles"),
     await store.get<string>("activeProfileId"),
   );
+  // Eski sürümlerden kalan düz metin anahtarlar burada şifreli hâle gelir.
   await saveProviderSettings(settings);
   return settings;
 }
 
 export async function saveProviderSettings(settings: ProviderSettings): Promise<void> {
   const store = await getStore();
-  await store.set("profiles", settings.profiles);
+  const profiles: StoredProfile[] = await Promise.all(
+    settings.profiles.map(async ({ apiKey, ...rest }) => ({ ...rest, ...(await encryptKey(apiKey.trim())) })),
+  );
+  await store.set("profiles", profiles);
   await store.set("roles", settings.roles);
   await store.delete("activeProfileId");
   await store.save();
