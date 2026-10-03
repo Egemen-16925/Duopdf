@@ -104,6 +104,26 @@ export interface StrokeRecord {
   updatedAt: number;
 }
 
+/** Sınavda cevaplanan tek bir soru. */
+export interface QuizAttemptRecord {
+  /** Cihazdan bağımsız kimlik (UUID). */
+  id: string;
+  /** "mcq": çoktan seçmeli (Faz 5); açık uçlu Faz 6'da gelecek. */
+  kind: "mcq";
+  sentence: string;
+  /** Cümlenin kararlı anahtarı (sentences tablosuyla aynı özet). */
+  sentenceKey: string;
+  /** Sorulan terimlerin kararlı anahtarları (TermRecord.key). */
+  termKeys: string[];
+  /** Gösterilen şıklar, gösterildiği sırayla. */
+  options: string[];
+  correctIndex: number;
+  chosenIndex: number;
+  correct: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 /** OCR sonucu (yeniden üretilebilir; yedeğe girmez). */
 export interface OcrRecord {
   /** "img:<görsel baytlarının SHA-256'sı>" ya da "page:<belge hash>:<görünüm>:<sayfa>". */
@@ -127,6 +147,7 @@ export class DuopdfDB extends Dexie {
   tombstones!: EntityTable<TombstoneRecord, "key">;
   ocr!: EntityTable<OcrRecord, "key">;
   strokes!: EntityTable<StrokeRecord, "id">;
+  quizAttempts!: EntityTable<QuizAttemptRecord, "id">;
 
   constructor(name = "duopdf") {
     super(name);
@@ -177,6 +198,17 @@ export class DuopdfDB extends Dexie {
       tombstones: "&key",
       ocr: "&key",
       strokes: "&id, [docHash+view], updatedAt",
+    });
+    this.version(7).stores({
+      documents: "++id, &hash, lastOpenedAt",
+      terms: "++id, &key, status, createdAt",
+      occurrences: "++id, termId, documentId",
+      cache: "&key",
+      sentences: "++id, &key, updatedAt",
+      tombstones: "&key",
+      ocr: "&key",
+      strokes: "&id, [docHash+view], updatedAt",
+      quizAttempts: "&id, *termKeys, createdAt, updatedAt",
     });
   }
 }

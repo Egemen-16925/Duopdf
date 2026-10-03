@@ -8,7 +8,7 @@ import { refreshTerms } from "../learning/store";
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
 
 const describe = (s: BackupSummary) =>
-  `${s.terms} kelime, ${s.occurrences} geçiş, ${s.sentences} çeviri, ${s.strokes} çizim, ${s.documents} belge`;
+  `${s.terms} kelime, ${s.occurrences} geçiş, ${s.sentences} çeviri, ${s.strokes} çizim, ${s.quizAttempts} sınav cevabı, ${s.documents} belge`;
 
 export function BackupSection() {
   const [status, setStatus] = useState<Status>(null);

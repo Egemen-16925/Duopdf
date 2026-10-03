@@ -29,6 +29,19 @@ async function seed() {
   });
   await cached(db, { id: "wordMeaning", version: 1 }, { word: "ran" }, async () => ({ anlam: "koşmak" }));
   await translateSentence(db, "We ran it.", async () => ({ ceviri: "Onu çalıştırdık.", dilbilgisiNotu: "Geçmiş zaman." }));
+  await db.quizAttempts.put({
+    id: "q1",
+    kind: "mcq",
+    sentence: "We ran it.",
+    sentenceKey: "k",
+    termKeys: ["run"],
+    options: ["a", "b", "c", "d"],
+    correctIndex: 0,
+    chosenIndex: 1,
+    correct: false,
+    createdAt: 1,
+    updatedAt: 1,
+  });
   const gone = await markTerm(db, { surface: "old", lemma: "old", status: "known" });
   await deleteTerm(db, gone.id);
 }
@@ -41,7 +54,8 @@ describe("backup", () => {
     expect(await db.terms.count()).toBe(0);
 
     const summary = await importLearningData(db, parseBackup(json));
-    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1, sentences: 1, strokes: 0 });
+    expect(summary).toEqual({ documents: 1, terms: 1, occurrences: 1, sentences: 1, strokes: 0, quizAttempts: 1 });
+    expect(await db.quizAttempts.get("q1")).toMatchObject({ termKeys: ["run"], correct: false });
     const [term] = await db.terms.toArray();
     expect(term).toMatchObject({ lemma: "run", meaning: "koşmak", status: "unknown" });
     const [occ] = await db.occurrences.toArray();

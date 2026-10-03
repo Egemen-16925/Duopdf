@@ -27,3 +27,24 @@ export const evaluationSchema = z.object({
   hedefKelimeler: z.array(z.object({ lemma: z.string(), dogruAnlasildi: z.boolean() })),
 });
 export type Evaluation = z.infer<typeof evaluationSchema>;
+
+/** Şıkları karşılaştırmak için: büyük/küçük harf, noktalama ve boşluk farkı sayılmaz. */
+export function normalizeOption(text: string): string {
+  return text
+    .toLocaleLowerCase("tr")
+    .replace(/[\s.,;:!?"'’“”()-]+/g, " ")
+    .trim();
+}
+
+export const multipleChoiceSchema = z
+  .object({
+    dogruCeviri: z.string().min(1),
+    celdiriciler: z.array(z.object({ metin: z.string().min(1), hata: z.string().min(1) })).length(3),
+  })
+  .superRefine((value, ctx) => {
+    const all = [value.dogruCeviri, ...value.celdiriciler.map((c) => c.metin)].map(normalizeOption);
+    if (new Set(all).size !== all.length) {
+      ctx.addIssue({ code: "custom", message: "Dört şık birbirinden farklı olmalı; çeldiriciler doğru çevirinin aynısı olamaz." });
+    }
+  });
+export type MultipleChoice = z.infer<typeof multipleChoiceSchema>;
