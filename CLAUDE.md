@@ -44,7 +44,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 3 — Kelime işaretleme
 - [x] Faz 4 — Cümle çevirisi
 - [x] Faz 4c — Görsellerden metin (OCR)
-- [ ] Faz 4b — Kalemle not alma (4c'den sonra)
+- [x] Faz 4b — Kalemle not alma (kalem/tablet testleri Egemen'in isteğiyle proje sonuna bırakıldı)
 - [ ] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
@@ -337,3 +337,11 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-02: PPTX metin görünümü SmartArt (diagrams/data), grafik başlıkları, `mc:AlternateContent` ve konuşmacı notlarını da okuyor. Egemen'in bildirdiği "çoğu metin görünmüyor" sorunu için; gerçek dosyayla doğrulanması bekleniyor.
 - 2026-10-03: OCR katmanı `pointer-events: none` (yalnızca OCR kelimeleri tıklanabilir); aksi hâlde logo gibi küçük bir resmi olan sayfalarda gerçek metne tıklanamıyordu (Egemen'in PWA slaytlarında bulundu).
 - 2026-10-03: Commit kimliği bu depoda `Egemen-16925 <240976138+Egemen-16925@users.noreply.github.com>` (yerel git ayarı).
+- 2026-10-03: Yakınlaştırma: Ctrl+tekerlek ve touchpad sıkıştırma imlecin olduğu yere göre (küçük adımlar birikir), dokunmatik ekranda iki parmak; PDF'te pdf.js `updateScale`, akan metinde yazı boyutu.
+- 2026-10-03: Çizimler `strokes` tablosunda (Dexie v6): belge hash + görünüm + sayfa, sayfaya oranlı noktalar ve basınç ağırlığı; silmeler `stroke:<id>` iziyle; yedeğe girer. Geri al / yinele oturum içidir.
+- 2026-10-03: Kalem araçları (Oku / Fosforlu / Kalem / Silgi) tüm sekmelerde ortak; akan metinde yalnızca Fosforlu (sayfa düzeni sabit olmadığı için kalıcı çizim yok). Fosforlu kalem açıkken metin seçimi engellenir.
+- 2026-10-03: "Parmakla çizim" varsayılan kapalı (parmak kaydırır/yakınlaştırır, kalem çizer, kalem değerken avuç içi yok sayılır); cihaza özel tercihler `localStorage` `duopdf.prefs`'te, yedeğe girmez.
+- 2026-10-03: Notların dışa aktarımı "Çizimli PDF": pdf-lib ile belgenin kopyasına çizilir (resimler tek sayfalık PDF olur), asıl dosya değişmez. Rust `write_pdf` ham bayt alır, yol başlıkta kodlu gelir, yalnızca `.pdf` yazar.
+- 2026-10-03: Tauri penceresinde `window.confirm()` gösterilmiyor (silmeler sormadan yapılıyordu); tüm onaylar uygulama içi `askConfirm` penceresinde. Kelime silmede "Bir daha sorma" var; Ayarlar → Tercihler'den sıfırlanır.
+- 2026-10-03: Her model rolüne isteğe bağlı yedek sağlayıcı + model (`roles.*.fallback`); 429'da beklemeden yedeğe geçilir. Yedek yoksa eski davranış (bekleyip yeniden dene).
+- 2026-10-03: API anahtarları `providers.json`'da Windows DPAPI ile şifreli (`apiKeyEnc`, uygulamaya özel ek anahtar); eski düz metin anahtarlar açılışta şifrelenir. Başka kullanıcı/bilgisayarda çözülemezse anahtar boş kalır, yeniden girilir. Android için platform anahtar deposu Faz 9'da.
