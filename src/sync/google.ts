@@ -88,9 +88,18 @@ async function tokenRequest(params: Record<string, string>): Promise<Tokens> {
   };
 }
 
+/** Süren girişin yerel kapısı ("Vazgeç" için). */
+let pendingPort: number | null = null;
+
+/** Tarayıcıda bekleyen girişi bırakır. */
+export async function cancelSignIn(): Promise<void> {
+  if (pendingPort !== null) await invoke("oauth_cancel", { port: pendingPort });
+}
+
 /** Tarayıcıda Google girişini açar, izni bekler ve oturum anahtarlarını döndürür. */
 export async function signIn(client: GoogleClient): Promise<Tokens> {
   const port = await invoke<number>("oauth_listen");
+  pendingPort = port;
   const redirectUri = `http://127.0.0.1:${port}`;
   const { verifier, challenge } = await pkcePair();
   const state = randomString(16);
@@ -116,7 +125,16 @@ export async function signIn(client: GoogleClient): Promise<Tokens> {
   try {
     query = await invoke<string>("oauth_wait", { port, timeoutSecs: SIGN_IN_TIMEOUT_SECS });
   } catch (e) {
-    throw new Error(String(e) === "TIMEOUT" ? "Tarayıcıda izin verilmedi (süre doldu). Tekrar dene." : String(e));
+    const reason = String(e);
+    throw new Error(
+      reason === "CANCELLED"
+        ? "Google bağlantısından vazgeçildi."
+        : reason === "TIMEOUT"
+          ? "Tarayıcıdan dönüş gelmedi (süre doldu). İzin verdikten sonra tarayıcıda \"Google bağlantısı tamamlandı\" sayfasını görmen gerekir."
+          : reason,
+    );
+  } finally {
+    pendingPort = null;
   }
   const params = new URLSearchParams(query);
   if (params.get("state") !== state) throw new Error("Google'dan beklenmeyen bir yanıt geldi (state uyuşmuyor).");

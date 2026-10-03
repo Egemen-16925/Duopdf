@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState } from "react";
-import { connect, deleteCloudData, disconnect, setAutoSync, setClient, syncNow, useSyncState } from "../sync/manager";
+import { cancelConnect, connect, deleteCloudData, disconnect, setAutoSync, setClient, syncNow, useSyncState } from "../sync/manager";
 import { askConfirm } from "../ui/confirm";
 
 const CONSOLE_URL = "https://console.cloud.google.com/auth/clients";
@@ -144,6 +144,11 @@ export function SyncSection() {
               <button onClick={() => run(connect, "Bağlandı ve eşitlendi.")} disabled={sync.busy !== "idle"}>
                 {sync.busy === "signing-in" ? "Tarayıcıda izin bekleniyor…" : "Google ile bağlan"}
               </button>
+              {sync.busy === "signing-in" && (
+                <button className="secondary" onClick={() => cancelConnect()}>
+                  Vazgeç
+                </button>
+              )}
               <button className="link-btn" onClick={() => setEditing(true)}>
                 İstemci bilgilerini değiştir
               </button>
@@ -152,6 +157,12 @@ export function SyncSection() {
         </>
       )}
 
+      {sync.busy === "signing-in" && (
+        <p className="msg info">
+          Tarayıcıda Google hesabını seçip izin ver. Sonunda tarayıcıda "Google bağlantısı tamamlandı" yazan bir sayfa
+          görmelisin; o zaman burası kendiliğinden bağlanır.
+        </p>
+      )}
       {sync.lastError && !message && <p className="msg error">{sync.lastError}</p>}
       {message && <p className={`msg ${message.kind}`}>{message.text}</p>}
     </section>

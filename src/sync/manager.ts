@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { db } from "../db/db";
 import { refreshTerms } from "../learning/store";
 import {
+  cancelSignIn,
   deleteSyncFile,
   downloadSyncFile,
   findSyncFile,
@@ -135,6 +136,11 @@ export async function connect(): Promise<void> {
     throw e;
   }
   await syncNow();
+}
+
+/** Tarayıcıda bekleyen Google girişinden vazgeçer. */
+export function cancelConnect(): Promise<void> {
+  return cancelSignIn();
 }
 
 export async function disconnect(): Promise<void> {

@@ -3,14 +3,18 @@
 //! oraya döner, biz de adresteki `code`/`state` bilgisini ön yüze veririz. Yalnızca bu bilgisayardan
 //! gelen tek bir istek beklenir; zaman aşımında kapı kapanır.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 #[derive(Default)]
-pub struct OAuthListeners(Mutex<HashMap<u16, TcpListener>>);
+pub struct OAuthListeners {
+    open: Mutex<HashMap<u16, TcpListener>>,
+    /// Kullanıcının "Vazgeç" dediği kapılar (bekleyen döngü bunu görüp durur).
+    cancelled: Arc<Mutex<HashSet<u16>>>,
+}
 
 const PAGE: &str = "<!doctype html><html lang=\"tr\"><meta charset=\"utf-8\"><title>Duopdf</title>\
 <body style=\"font-family:Segoe UI,sans-serif;text-align:center;padding:48px\">\
@@ -21,7 +25,7 @@ const PAGE: &str = "<!doctype html><html lang=\"tr\"><meta charset=\"utf-8\"><ti
 pub fn oauth_listen(state: tauri::State<'_, OAuthListeners>) -> Result<u16, String> {
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| format!("Yerel kapı açılamadı: {e}"))?;
     let port = listener.local_addr().map_err(|e| e.to_string())?.port();
-    state.0.lock().unwrap().insert(port, listener);
+    state.open.lock().unwrap().insert(port, listener);
     Ok(port)
 }
 
@@ -45,10 +49,13 @@ fn answer(mut stream: TcpStream, ok: bool) {
     let _ = stream.flush();
 }
 
-fn wait_for_callback(listener: TcpListener, timeout: Duration) -> Result<String, String> {
+fn wait_for_callback(listener: TcpListener, timeout: Duration, cancelled: impl Fn() -> bool) -> Result<String, String> {
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
     let deadline = Instant::now() + timeout;
     loop {
+        if cancelled() {
+            return Err("CANCELLED".into());
+        }
         match listener.accept() {
             Ok((mut stream, _)) => {
                 let _ = stream.set_nonblocking(false);
@@ -78,16 +85,24 @@ fn wait_for_callback(listener: TcpListener, timeout: Duration) -> Result<String,
 /// Google'ın yönlendirmesini bekler ve sorgu dizgesini (code=..&state=..) döndürür.
 #[tauri::command]
 pub async fn oauth_wait(state: tauri::State<'_, OAuthListeners>, port: u16, timeout_secs: u64) -> Result<String, String> {
-    let listener = state.0.lock().unwrap().remove(&port).ok_or("Bu kapı açık değil.")?;
-    tauri::async_runtime::spawn_blocking(move || wait_for_callback(listener, Duration::from_secs(timeout_secs)))
-        .await
-        .map_err(|e| e.to_string())?
+    let listener = state.open.lock().unwrap().remove(&port).ok_or("Bu kapı açık değil.")?;
+    let cancelled = state.cancelled.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        wait_for_callback(listener, Duration::from_secs(timeout_secs), || cancelled.lock().unwrap().contains(&port))
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    state.cancelled.lock().unwrap().remove(&port);
+    result
 }
 
 /// Bekleme yarıda bırakılırsa (kullanıcı vazgeçti) kapıyı kapatır.
 #[tauri::command]
 pub fn oauth_cancel(state: tauri::State<'_, OAuthListeners>, port: u16) {
-    state.0.lock().unwrap().remove(&port);
+    if state.open.lock().unwrap().remove(&port).is_none() {
+        // Bekleme başlamış: döngüye durmasını söyle.
+        state.cancelled.lock().unwrap().insert(port);
+    }
 }
 
 #[cfg(test)]
@@ -110,7 +125,7 @@ mod tests {
             let _ = stream.read_to_string(&mut page);
             page
         });
-        let query = wait_for_callback(listener, Duration::from_secs(5)).unwrap();
+        let query = wait_for_callback(listener, Duration::from_secs(5), || false).unwrap();
         assert_eq!(query, "state=abc&code=4%2F0Ab");
         assert!(client.join().unwrap().contains("Google bağlantısı tamamlandı"));
     }
@@ -118,6 +133,12 @@ mod tests {
     #[test]
     fn times_out_without_a_redirect() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        assert_eq!(wait_for_callback(listener, Duration::from_millis(200)).unwrap_err(), "TIMEOUT");
+        assert_eq!(wait_for_callback(listener, Duration::from_millis(200), || false).unwrap_err(), "TIMEOUT");
+    }
+
+    #[test]
+    fn stops_when_cancelled() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        assert_eq!(wait_for_callback(listener, Duration::from_secs(30), || true).unwrap_err(), "CANCELLED");
     }
 }
