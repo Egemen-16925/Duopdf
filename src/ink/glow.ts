@@ -1,6 +1,5 @@
-import { flashRange } from "../learning/highlights";
 import { caretFromPoint, pickAtPoint, pickFromRange, type Pick } from "../learning/pick";
-import type { TextMode } from "../learning/textMap";
+import { NO_TEXT, type TextMode } from "../learning/textMap";
 import { getPrefs } from "../settings/prefs";
 import { getInkTools, subscribeInkTools } from "./tools";
 import { capture, coalesced, TouchPanner } from "./touchPan";
@@ -15,6 +14,7 @@ interface GlowOptions {
 }
 
 const FADE_MS = 1000;
+const INTERACTIVE = "a[href], button, input, select, textarea, label";
 
 /**
  * Geçici parlak kalem: metnin üstünden geçince parlak bir iz bırakır, iz kısa sürede söner.
@@ -114,7 +114,7 @@ export function attachGlow(opts: GlowOptions): () => void {
       const caret = caretFromPoint(p.x, p.y);
       if (!caret || caret.node.nodeType !== Node.TEXT_NODE) continue;
       const root = caret.node.parentElement?.closest(opts.rootSelector);
-      if (!root) continue;
+      if (!root || caret.node.parentElement?.closest(NO_TEXT)) continue;
       // İmleç en yakın yazıya "yapışır" (boş zeminde bile); nokta o harfin üstünde ya da çok yakınında mı?
       const box = charBox(caret.node as Text, caret.offset);
       if (!box) continue;
@@ -152,8 +152,8 @@ export function attachGlow(opts: GlowOptions): () => void {
       const range = document.createRange();
       range.setStart(first.node, first.offset);
       range.setEnd(last.node, last.offset);
+      // Mavi "yanıp sönme" vurgusu metin seçimi gibi göründüğü için yok; açılan pencere yeterli.
       result = pickFromRange(range, opts.rootSelector, opts.mode);
-      if (result) flashRange(range, 800);
     }
     // Tek noktaya dokunulduysa (ya da aralık kelime içermiyorsa) o noktadaki kelime.
     result ??= pickAtPoint(first.x, first.y, root, opts.mode);
@@ -167,6 +167,8 @@ export function attachGlow(opts: GlowOptions): () => void {
       return;
     }
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    // Düğme ve bağlantılar (ör. "Yapay zekâ ile oku") fosforlu kalem açıkken de tıklanabilsin.
+    if ((e.target as Element | null)?.closest?.(INTERACTIVE)) return;
     // Varsayılanı engelle: metin seçimi başlamasın, kelime tıklaması tetiklenmesin.
     e.preventDefault();
     e.stopPropagation();
@@ -199,7 +201,7 @@ export function attachGlow(opts: GlowOptions): () => void {
   // Chromium, pointerdown engellense de fareyle sürüklemede metin seçimine başlayabiliyor;
   // fosforlu kalem açıkken seçim hiç başlamasın.
   const noSelect = (e: Event) => {
-    if (active()) e.preventDefault();
+    if (active() && !(e.target as Element | null)?.closest?.(INTERACTIVE)) e.preventDefault();
   };
 
   container.addEventListener("pointerdown", onDown, true);

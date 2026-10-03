@@ -73,3 +73,9 @@ export function errorForStatus(status: number, body: string): AiError {
       return new AiError("badRequest", `İstek reddedildi (${status}).`, status, detail);
   }
 }
+
+/** Kullanıcıya gösterilecek hata metni; sağlayıcının kendi mesajı varsa onu da ekler (sorunun nedenini o söyler). */
+export function describeAiError(e: unknown): string {
+  if (!(e instanceof AiError)) return e instanceof Error ? e.message : String(e);
+  return e.detail ? `${e.message}\nSağlayıcının mesajı: ${e.detail.slice(0, 300)}` : e.message;
+}

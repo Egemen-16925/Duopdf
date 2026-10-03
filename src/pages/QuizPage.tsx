@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AiError } from "../ai/errors";
+import { describeAiError } from "../ai/errors";
 import { db, type OccurrenceRecord } from "../db/db";
 import type { TermStatus } from "../learning/matcher";
 import { useTerms } from "../learning/store";
@@ -39,11 +39,6 @@ const COUNTS = [5, 10, 15, 20];
 const LETTERS = ["A", "B", "C", "D"];
 /** Şu anki sorudan sonra kaç soru önceden hazırlansın. */
 const PREFETCH = 2;
-
-function errorText(e: unknown): string {
-  if (e instanceof AiError) return e.message;
-  return e instanceof Error ? e.message : String(e);
-}
 
 export function QuizPage({ target, active }: Props) {
   const terms = useTerms();
@@ -89,7 +84,8 @@ export function QuizPage({ target, active }: Props) {
       const question = await makeQuestion(db, target, slot.item, { force });
       if (run.current === myRun) patch(index, { state: "ready", question });
     } catch (e) {
-      if (run.current === myRun) patch(index, { state: "error", error: errorText(e) });
+      if (run.current === myRun) patch(index, { state: "error", error: `${describeAiError(e)}
+Model: ${target.model}` });
     } finally {
       loading.current.delete(index);
     }

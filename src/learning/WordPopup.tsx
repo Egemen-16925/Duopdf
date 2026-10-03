@@ -1,7 +1,7 @@
 import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { generate } from "../ai/aiClient";
-import { AiError } from "../ai/errors";
+import { describeAiError } from "../ai/errors";
 import { wordMeaningPrompt } from "../ai/prompts/wordMeaning";
 import type { WordMeaning } from "../ai/schemas";
 import { db, type OccurrenceRecord, type TermRecord } from "../db/db";
@@ -59,7 +59,7 @@ export function WordPopup({ pick, location, target, onClose, onTranslateSentence
       });
       setAi({ state: "done", data: value, fromCache });
     } catch (e) {
-      setAi({ state: "error", message: e instanceof AiError ? e.message : String(e) });
+      setAi({ state: "error", message: describeAiError(e) });
     }
   }
 

@@ -25,8 +25,13 @@ function fontHeight(node: Text): number {
 /** Punto bu orandan fazla değişirse (başlık → gövde) parçalar ayrı paragraf sayılır. */
 const FONT_JUMP = 1.2;
 
+/** Bu işaretli öğelerin yazısı belge metni sayılmaz (ör. "Görseldeki yazı · Yapay zekâ ile oku" etiketi). */
+export const NO_TEXT = "[data-no-text]";
+
 export function buildTextMap(root: Element, mode: TextMode): TextMap {
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) => (node.parentElement?.closest(NO_TEXT) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
   const nodes: TextMap["nodes"] = [];
   let text = "";
   let prevBlock: Element | null = null;

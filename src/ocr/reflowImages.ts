@@ -35,6 +35,8 @@ export function replaceImagesWithText(
 ): () => void {
   const caption = (holder: HTMLElement, text: string) => {
     const line = el("span", "ocr-caption", text);
+    // Arayüz yazısı: kelime seçmeye, vurgulamaya ve çeviriye girmez.
+    line.dataset.noText = "";
     const section = holder.closest<HTMLElement>(".reflow-section");
     if (onAiRead && section) {
       const button = el("button", "link-btn ocr-ai", "Yapay zekâ ile oku");

@@ -254,3 +254,13 @@ describe("fallback on rate limit", () => {
     expect(await readImageWithAi(withBackup, "data:image/jpeg;base64,AAAA")).toBe("Okunan yazı");
   });
 });
+
+describe("describeAiError", () => {
+  it("includes the provider's own message so the cause is visible", async () => {
+    fetchMock.mockResolvedValue(response(400, { error: { message: "model does not support this parameter" } }));
+    const err = await chat(profile, { model: "m", messages: [] }).catch((e) => e);
+    const { describeAiError } = await import("./errors");
+    expect(describeAiError(err)).toBe("İstek reddedildi (400).\nSağlayıcının mesajı: model does not support this parameter");
+    fetchMock.mockReset();
+  });
+});

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { generate } from "../ai/aiClient";
-import { AiError } from "../ai/errors";
+import { describeAiError } from "../ai/errors";
 import { translateSentencePrompt } from "../ai/prompts/translateSentence";
 import { db, type SentenceRecord } from "../db/db";
 import type { AiTarget } from "../settings/providers";
@@ -51,7 +51,7 @@ export function SentencePopup({ pick, source, target, onClose }: Props) {
       });
       setResult({ state: "done", ...out });
     } catch (e) {
-      setResult({ state: "error", message: e instanceof AiError ? e.message : String(e), saved });
+      setResult({ state: "error", message: describeAiError(e), saved });
     }
   }
 
