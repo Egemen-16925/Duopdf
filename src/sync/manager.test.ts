@@ -33,6 +33,9 @@ vi.mock("../learning/store", () => ({ refreshTerms: async () => {} }));
 const files = new Map<string, string>();
 const tokenRequests: URLSearchParams[] = [];
 let uploads = 0;
+let grantedScope = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.appdata";
+let driveForbidden = false;
+let revoked = 0;
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
@@ -50,11 +53,15 @@ vi.mock("@tauri-apps/plugin-http", () => ({
       tokenRequests.push(body);
       if (body.get("client_secret") !== "secret-1") return json({ error: "invalid_client" }, 401);
       if (body.get("grant_type") === "authorization_code") {
-        return json({ access_token: "at-1", expires_in: 3600, refresh_token: "rt-1", id_token: idToken });
+        return json({ access_token: "at-1", expires_in: 3600, refresh_token: "rt-1", id_token: idToken, scope: grantedScope });
       }
       return json({ access_token: "at-2", expires_in: 3600 });
     }
-    if (url.href.startsWith("https://oauth2.googleapis.com/revoke")) return json({});
+    if (url.href.startsWith("https://oauth2.googleapis.com/revoke")) {
+      revoked++;
+      return json({});
+    }
+    if (driveForbidden) return json({ error: { code: 403, message: "Request had insufficient authentication scopes." } }, 403);
     if (!auth?.startsWith("Bearer at-")) return json({ error: "unauthorized" }, 401);
     if (url.pathname === "/drive/v3/files" && method === "GET") {
       expect(url.searchParams.get("spaces")).toBe("appDataFolder");
@@ -157,5 +164,24 @@ describe("Google Drive sync", () => {
     await deleteCloudData();
     expect(files.size).toBe(0);
     expect(await db.terms.count()).toBe(3);
+  });
+
+  it("disconnects with a clear message when Drive answers 'insufficient scopes'", async () => {
+    driveForbidden = true;
+    await expect(syncNow()).rejects.toThrow("Drive izni verilmedi");
+    expect(getSyncState()).toMatchObject({ connected: false });
+    expect(getSyncState().lastError).toContain("kutusunu işaretle");
+    driveForbidden = false;
+  });
+
+  it("refuses a sign-in where the Drive box was left unticked", async () => {
+    grantedScope = "openid https://www.googleapis.com/auth/userinfo.email";
+    const before = revoked;
+    await expect(connect()).rejects.toThrow("Drive izni verilmedi");
+    expect(revoked).toBe(before + 1);
+    expect(getSyncState().connected).toBe(false);
+    grantedScope = "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.appdata";
+    await connect();
+    expect(getSyncState().connected).toBe(true);
   });
 });

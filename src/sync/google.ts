@@ -7,7 +7,12 @@ import { openUrl } from "@tauri-apps/plugin-opener";
  * klasörü (appDataFolder). Sunucu yok: istekler doğrudan bu bilgisayardan Google'a gider.
  * Yalnızca uygulamanın kendi klasörüne erişim istenir; kullanıcının diğer Drive dosyaları görülemez.
  */
-export const SCOPES = ["openid", "email", "https://www.googleapis.com/auth/drive.appdata"];
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+export const SCOPES = ["openid", "email", DRIVE_SCOPE];
+
+/** Google'ın izin ekranında Drive kutusu işaretlenmeden geçilince. */
+export const DRIVE_PERMISSION_MISSING =
+  "Google'da Drive izni verilmedi. Yeniden bağlanırken izin ekranındaki \"Google Drive'daki kendi yapılandırma verilerini görme, oluşturma ve silme\" kutusunu işaretle (ya da \"Tümünü seç\").";
 export const SYNC_FILE = "duopdf-sync.json";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -28,6 +33,16 @@ export interface Tokens {
   expiresAt: number;
   refreshToken?: string;
   email?: string;
+  /** Kullanıcının gerçekten verdiği izinler (Google her birini ayrı onaylatabilir). */
+  scopes?: string[];
+}
+
+/** Drive izni eksik: bağlantı yeniden kurulmalı. */
+export class DrivePermissionMissing extends Error {
+  constructor() {
+    super(DRIVE_PERMISSION_MISSING);
+    this.name = "DrivePermissionMissing";
+  }
 }
 
 /** Google'ın reddettiği oturum (iptal edilmiş ya da süresi dolmuş): yeniden bağlanmak gerekir. */
@@ -84,6 +99,7 @@ async function tokenRequest(params: Record<string, string>): Promise<Tokens> {
     accessToken: String(data.access_token),
     expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
     ...(data.refresh_token ? { refreshToken: String(data.refresh_token) } : {}),
+    ...(typeof data.scope === "string" ? { scopes: data.scope.split(" ") } : {}),
     ...(emailFromIdToken(data.id_token as string | undefined) ? { email: emailFromIdToken(data.id_token as string) } : {}),
   };
 }
@@ -151,6 +167,11 @@ export async function signIn(client: GoogleClient): Promise<Tokens> {
     grant_type: "authorization_code",
     code_verifier: verifier,
   });
+  if (tokens.scopes && !tokens.scopes.includes(DRIVE_SCOPE)) {
+    // Drive kutusu işaretlenmemiş: verilen izni geri al ki bir sonraki girişte izin ekranı yeniden sorsun.
+    await revoke(tokens.refreshToken ?? tokens.accessToken);
+    throw new DrivePermissionMissing();
+  }
   if (!tokens.refreshToken) throw new Error("Google kalıcı oturum anahtarı vermedi; bağlantıyı kesip yeniden bağlan.");
   return tokens;
 }
@@ -174,6 +195,7 @@ async function driveRequest(token: string, url: string, init: RequestInit = {}):
   if (res.status === 401) throw new SignInRequired();
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    if (res.status === 403 && /insufficient|scope/i.test(text)) throw new DrivePermissionMissing();
     throw new Error(`Google Drive hatası (${res.status}): ${text.slice(0, 200)}`);
   }
   return res;

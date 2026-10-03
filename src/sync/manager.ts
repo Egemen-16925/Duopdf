@@ -8,6 +8,7 @@ import {
   deleteSyncFile,
   downloadSyncFile,
   findSyncFile,
+  DrivePermissionMissing,
   refreshAccess,
   revoke,
   signIn,
@@ -199,6 +200,8 @@ export function syncNow(): Promise<void> {
       await save({ lastSyncAt: now });
       set({ busy: "idle", lastSyncAt: now, lastChanged: changedLocally });
     } catch (e) {
+      // Drive izni olmadan kurulmuş eski bağlantı: kesilir, kullanıcı izinle yeniden bağlanır.
+      if (e instanceof DrivePermissionMissing) await disconnect();
       set({ busy: "idle", lastError: e instanceof Error ? e.message : String(e) });
       throw e;
     } finally {
