@@ -45,7 +45,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 4 — Cümle çevirisi
 - [x] Faz 4c — Görsellerden metin (OCR)
 - [x] Faz 4b — Kalemle not alma (kalem/tablet testleri Egemen'in isteğiyle proje sonuna bırakıldı)
-- [ ] Faz 5 — Çoktan seçmeli sınav
+- [x] Faz 5 — Çoktan seçmeli sınav
 - [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
 - [ ] Faz 7b — Bulut eşitleme (Google Drive)
@@ -345,3 +345,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-03: Tauri penceresinde `window.confirm()` gösterilmiyor (silmeler sormadan yapılıyordu); tüm onaylar uygulama içi `askConfirm` penceresinde. Kelime silmede "Bir daha sorma" var; Ayarlar → Tercihler'den sıfırlanır.
 - 2026-10-03: Her model rolüne isteğe bağlı yedek sağlayıcı + model (`roles.*.fallback`); 429'da beklemeden yedeğe geçilir. Yedek yoksa eski davranış (bekleyip yeniden dene).
 - 2026-10-03: API anahtarları `providers.json`'da Windows DPAPI ile şifreli (`apiKeyEnc`, uygulamaya özel ek anahtar); eski düz metin anahtarlar açılışta şifrelenir. Başka kullanıcı/bilgisayarda çözülemezse anahtar boş kalır, yeniden girilir. Android için platform anahtar deposu Faz 9'da.
+- 2026-10-03: Fosforlu kalem izin yalnızca uçlarına değil, geçtiği tüm noktalara bakar (harfin kutusuna yakın olanlar); büyük başlıkların üstünü çizmek yeter. Ana pencere büyütülmüş açılır.
+- 2026-10-03: Çoktan seçmeli sınav: her kelimeye bir soru, kelimenin kayıtlı cümlelerinden (15-400 karakter) biri; az sorulan ve uzun süredir sorulmayan kelimeler önce. Şıkları güçlü model üretir (doğru çeviri + 3 çeldirici ve her birinin "neden yanlış" açıklaması); okuyucuda yapılmış çeviri varsa doğru şık o olur.
+- 2026-10-03: Şıklar zod ile denetlenir: tam 3 çeldirici, büyük/küçük harf ve noktalama dışında dört şık birbirinden farklı; değilse model bir kez düzeltir. Sorular `cache` tablosunda (istem `multipleChoice@1`); "Soruyu yenile" yeniden üretir. Sonraki 2 soru arka planda hazırlanır.
+- 2026-10-03: `quizAttempts` tablosu (Dexie v7): UUID, `termKeys` (kararlı terim anahtarları), şıklar, doğru/seçilen şık, `updatedAt`; yedeğe girer. Sınav sonucu kelime durumunu değiştirmez (aralıklı tekrar Faz 6'da).
