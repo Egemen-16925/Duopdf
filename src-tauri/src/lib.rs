@@ -1,3 +1,4 @@
+mod oauth;
 mod office;
 mod secret;
 
@@ -100,6 +101,7 @@ fn write_pdf(request: tauri::ipc::Request<'_>) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(oauth::OAuthListeners::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
@@ -109,6 +111,9 @@ pub fn run() {
             write_backup,
             read_backup,
             write_pdf,
+            oauth::oauth_listen,
+            oauth::oauth_wait,
+            oauth::oauth_cancel,
             secret::protect_secret,
             secret::unprotect_secret,
             office::office_available,
