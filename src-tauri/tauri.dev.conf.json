@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Duopdf Dev",
+  "identifier": "com.egemen.duopdf.dev",
+  "app": {
+    "windows": [
+      {
+        "title": "Duopdf (geliştirme)",
+        "width": 1200,
+        "height": 800,
+        "maximized": true
+      }
+    ]
+  }
+}
