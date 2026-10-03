@@ -6,10 +6,14 @@ export interface Prefs {
   fingerDraw: boolean;
   /** "Bir daha sorma" denmiş onaylar (ör. "deleteTerm"). */
   skipConfirm: Record<string, boolean>;
+  /** Arayüz teması; "system" Windows'un ayarını izler. */
+  theme: Theme;
 }
 
+export type Theme = "system" | "light" | "dark";
+
 const KEY = "duopdf.prefs";
-const DEFAULTS: Prefs = { fingerDraw: false, skipConfirm: {} };
+const DEFAULTS: Prefs = { fingerDraw: false, skipConfirm: {}, theme: "system" };
 
 function read(): Prefs {
   try {
@@ -27,8 +31,15 @@ export function getPrefs(): Prefs {
   return prefs;
 }
 
+/** Temayı sayfaya uygular (CSS `:root[data-theme]`). */
+export function applyTheme(theme: Theme) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
+
 export function setPrefs(patch: Partial<Prefs>) {
   prefs = { ...prefs, ...patch };
+  if (patch.theme) applyTheme(prefs.theme);
   try {
     localStorage.setItem(KEY, JSON.stringify(prefs));
   } catch {

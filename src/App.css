@@ -13,6 +13,7 @@
   --warn: #9a6700;
   --warn-bg: #fff8c5;
   --info-bg: #ddf4ff;
+  color-scheme: light;
 
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 15px;
@@ -21,8 +22,9 @@
   background-color: var(--bg);
 }
 
+/* Tema: Ayarlar → Tercihler. "Sistem" seçiliyse (data-theme yok) Windows'un açık/koyu ayarı izlenir. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1e1f22;
     --surface: #2b2d31;
     --text: #e6e6e6;
@@ -36,7 +38,25 @@
     --warn: #e3b341;
     --warn-bg: #3a2f10;
     --info-bg: #10304a;
+    color-scheme: dark;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1e1f22;
+  --surface: #2b2d31;
+  --text: #e6e6e6;
+  --muted: #9aa0a6;
+  --border: #44474d;
+  --accent: #4f8cff;
+  --ok: #4ac26b;
+  --ok-bg: #12301c;
+  --bad: #ff7b72;
+  --bad-bg: #3d1a1a;
+  --warn: #e3b341;
+  --warn-bg: #3a2f10;
+  --info-bg: #10304a;
+  color-scheme: dark;
 }
 
 * {
@@ -1725,4 +1745,13 @@ div.quiz-option {
 .term-due {
   white-space: nowrap;
   font-size: 0.85rem;
+}
+
+.prefs-row.prefs-first {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.prefs-row select {
+  width: auto;
 }
