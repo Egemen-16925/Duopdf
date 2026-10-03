@@ -1981,3 +1981,15 @@ kbd {
 .getting-started p {
   margin: 0;
 }
+
+.sync-client,
+.sync-status {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sync-client p,
+.sync-section > p {
+  margin: 0 0 8px;
+}

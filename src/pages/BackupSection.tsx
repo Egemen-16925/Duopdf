@@ -4,6 +4,7 @@ import { db } from "../db/db";
 import { clearLearningData, importLearningData, summarize, type BackupSummary } from "../learning/backup";
 import { exportToFile, readBackupFile } from "../learning/backupFiles";
 import { refreshTerms } from "../learning/store";
+import { deleteCloudData, getSyncState } from "../sync/manager";
 
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
 
@@ -57,9 +58,23 @@ export function BackupSection() {
         confirmLabel: "Hepsini sil",
       });
       if (!ok) return;
+      // Eşitleme açıkken buluttaki kopya silinmezse veriler bir sonraki eşitlemede geri gelir.
+      const cloud =
+        getSyncState().connected &&
+        (await askConfirm({
+          title: "Google Drive'daki kopya da silinsin mi?",
+          message: "Silinmezse bir sonraki eşitlemede veriler buluttan geri gelir.",
+          confirmLabel: "Buluttan da sil",
+        }));
+      if (cloud) await deleteCloudData();
       await clearLearningData(db);
       await refreshTerms();
-      setStatus({ kind: "info", text: "Öğrenme verisi silindi. Sağlayıcı ayarların duruyor." });
+      setStatus({
+        kind: "info",
+        text: cloud
+          ? "Öğrenme verisi bu bilgisayardan ve buluttan silindi. Sağlayıcı ayarların duruyor."
+          : "Öğrenme verisi silindi. Sağlayıcı ayarların duruyor.",
+      });
     });
 
   return (

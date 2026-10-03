@@ -8,6 +8,8 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { StatsPage } from "./pages/StatsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { initSync, startAutoSync, syncBeforeClose } from "./sync/manager";
 import { ConfirmHost } from "./ui/confirm";
 import { ShortcutsDialog } from "./ui/ShortcutsDialog";
 import { allTargets, loadProviderSettings, saveProviderSettings, type ProviderSettings } from "./settings/providers";
@@ -73,6 +75,32 @@ function App() {
       .then(setSettings)
       .catch((e) => setLoadError(String(e)));
     refreshTerms();
+  }, []);
+
+  // Google Drive eşitlemesi: açılışta, birkaç dakikada bir ve kapanırken.
+  useEffect(() => {
+    let stopAuto: (() => void) | undefined;
+    let cancelled = false;
+    initSync()
+      .then(() => {
+        if (!cancelled) stopAuto = startAutoSync();
+      })
+      .catch((e) => console.warn("Eşitleme ayarları yüklenemedi:", e));
+    let unlisten: (() => void) | undefined;
+    try {
+      // Pencere, işleyici bittikten sonra kapanır (en çok birkaç saniye beklenir).
+      getCurrentWindow()
+        .onCloseRequested(() => syncBeforeClose())
+        .then((u) => (cancelled ? u() : (unlisten = u)))
+        .catch(() => undefined);
+    } catch {
+      // Tauri dışında (test ortamı) pencere yok.
+    }
+    return () => {
+      cancelled = true;
+      stopAuto?.();
+      unlisten?.();
+    };
   }, []);
 
   function goToOccurrence(occurrence: OccurrenceRecord) {
