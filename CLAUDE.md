@@ -46,7 +46,7 @@ Her fazın sonunda sırayla:
 - [x] Faz 4c — Görsellerden metin (OCR)
 - [x] Faz 4b — Kalemle not alma (kalem/tablet testleri Egemen'in isteğiyle proje sonuna bırakıldı)
 - [x] Faz 5 — Çoktan seçmeli sınav
-- [ ] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
+- [x] Faz 6 — Açık uçlu çeviri sınavı ve aralıklı tekrar
 - [ ] Faz 7 — İstatistik, sesli okuma, son rötuşlar
 - [ ] Faz 7b — Bulut eşitleme (Google Drive)
 - [ ] Faz 8 — Paketleme ve GitHub Release
@@ -353,3 +353,7 @@ Egemen isterse: Tauri 2 mobil hedefi, dokunmatik için kelime seçimi, tablet d�
 - 2026-10-03: Egemen'in isteğiyle sınav yenilendi (istem `multipleChoice@2`): soru cümlesini model her seferinde yeniden kurar (sıcaklık 0.9); belgedeki cümle yalnızca anlamı belirlemek için gönderilir, kelimenin son 8 soru cümlesi "bunlara benzeme" diye verilir. Sorular önbelleğe alınmaz.
 - 2026-10-03: Soru yönü: İngilizce → Türkçe, Türkçe → İngilizce ya da karışık (varsayılan). `quizAttempts` kayıtlarına `direction` ve `translation` eklendi. Kelime seçimi: önce az sorulan, sonra çok yanlış yapılan kelime; geçtiği cümle kayıtlı olmayan kelimeler de sorulabilir.
 - 2026-10-03: Kelime başına doğru/yanlış sayısı sınav ayar ekranında ("Kelimelerdeki başarın"), sınav sonunda ve Kelimeler sayfasında gösterilir.
+- 2026-10-03: Sınavda cevaptan sonra İngilizce metin okuyucudaki gibi tıklanıp seçilebilir (kelime/cümle penceresi; sınav cümlesinden işaretlenen kelimeye geçiş kaydı yazılmaz). Uzun şıklar alt satıra iner.
+- 2026-10-03: Açık uçlu soru: cümleyi model kurar (`openQuestion@1`), kullanıcı çevirisini yazar (iki yön), güçlü model `evaluateTranslation@2` ile anlam üzerinden değerlendirir (örnek çeviri yalnızca yol gösterir). Kelime doğru sayılır: modelin `hedefKelimeler` kararı doğruysa ve sonuç "yanlis" değilse.
+- 2026-10-03: Aralıklı tekrar (`src/quiz/review.ts`): her cevap (çoktan seçmeli dahil) `terms.review`'u günceller. Doğru: aralık 1, 3, 7 gün, sonra ×2,5; ilk doğru "bilmiyorum"u "az biliyorum"a, üst üste 3 doğru "biliyorum"a çıkarır. Yanlış: seri sıfırlanır, kelime hemen yeniden sorulabilir; "biliyorum" ise "az biliyorum"a iner.
+- 2026-10-03: "Bugünkü tekrar": tekrar zamanı bugün biten ya da geçmiş kelimeler, en çok gecikmiş önce. Soru türü (çoktan seçmeli / yazılı / karışık) ve yönü ayarlanabilir. Kelimeler sayfasında her kelimenin tekrar günü görünür. `quizAttempts`'e `kind: "open"`, `userAnswer`, `result`, `score`, `feedback` eklendi.
