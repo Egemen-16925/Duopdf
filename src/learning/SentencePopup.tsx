@@ -11,7 +11,8 @@ import { getSentence, translateSentence } from "./sentences";
 
 interface Props {
   pick: SentencePick;
-  source: { documentHash: string; page: number };
+  /** Belgedeki yer (yoksa, ör. sınav cümlesinde, kaydedilmez). */
+  source?: { documentHash: string; page: number };
   /** Hızlı model (yoksa yalnızca kayıtlı çeviriler gösterilir). */
   target: AiTarget | null;
   onClose(): void;

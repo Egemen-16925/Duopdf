@@ -18,7 +18,8 @@ export type PickLocation = Omit<OccurrenceRecord, "id" | "termId" | "createdAt" 
 
 interface Props {
   pick: WordPick;
-  location: PickLocation;
+  /** Belgedeki yer; yoksa (ör. sınav cümlesi) geçiş kaydedilmez, yalnızca kelime işaretlenir. */
+  location?: PickLocation;
   /** Hızlı model (yoksa yalnızca yerel kök hâli). */
   target: AiTarget | null;
   onClose(): void;
@@ -86,7 +87,7 @@ export function WordPopup({ pick, location, target, onClose, onTranslateSentence
         status,
         meaning: aiData?.anlam,
         explanation: aiData?.aciklama,
-        occurrence: { ...location, sentence: pick.sentence },
+        ...(location ? { occurrence: { ...location, sentence: pick.sentence } } : {}),
       });
       await refreshTerms();
     } finally {

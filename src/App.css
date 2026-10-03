@@ -1600,3 +1600,29 @@ pre {
 .quiz-target {
   margin: 12px 0 0;
 }
+
+/* Uzun şıklar alt satıra geçsin, kutu metni tam sarsın. */
+.quiz-option {
+  white-space: normal;
+  height: auto;
+}
+
+.quiz-option > span:last-child {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+div.quiz-option {
+  cursor: default;
+}
+
+.quiz-pickable {
+  cursor: text;
+  user-select: text;
+}
+
+.quiz-hint {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+}

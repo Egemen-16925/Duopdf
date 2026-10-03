@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { describeAiError } from "../ai/errors";
 import { db, type OccurrenceRecord } from "../db/db";
+import { trackRoot, untrackRoot } from "../learning/highlights";
+import { pickFromPointer, type Pick } from "../learning/pick";
+import { SentencePopup } from "../learning/SentencePopup";
+import { WordPopup } from "../learning/WordPopup";
 import type { TermStatus } from "../learning/matcher";
 import { useTerms } from "../learning/store";
 import {
@@ -20,6 +24,8 @@ import { QuizScore } from "./WordsPage";
 interface Props {
   /** Güçlü model (soruları üretir; hata olursa yedek model denenir). */
   target: AiTarget | null;
+  /** Hızlı model (cevapladıktan sonra kelime anlamı ve cümle çevirisi). */
+  fast: AiTarget | null;
   /** Sayfa ekranda mı (klavye kısayolları yalnızca o zaman çalışır). */
   active: boolean;
 }
@@ -48,19 +54,27 @@ const LETTERS = ["A", "B", "C", "D"];
 const PREFETCH = 2;
 
 /** İngilizce cümle, hedef kelime vurgulu. */
-function English({ question }: { question: QuizQuestion }) {
+function English({ question, pickable }: { question: QuizQuestion; pickable?: boolean }) {
   const { english, highlight } = question;
-  if (!highlight) return <>{english}</>;
   return (
-    <>
-      {english.slice(0, highlight.start)}
-      <mark>{english.slice(highlight.start, highlight.end)}</mark>
-      {english.slice(highlight.end)}
-    </>
+    <span className={pickable ? PICKABLE : undefined}>
+      {highlight ? (
+        <>
+          {english.slice(0, highlight.start)}
+          <mark>{english.slice(highlight.start, highlight.end)}</mark>
+          {english.slice(highlight.end)}
+        </>
+      ) : (
+        english
+      )}
+    </span>
   );
 }
 
-export function QuizPage({ target, active }: Props) {
+/** Cevaplandıktan sonra tıklanıp çevrilebilen İngilizce metin (okuyucudaki gibi). */
+const PICKABLE = "quiz-pickable";
+
+export function QuizPage({ target, fast, active }: Props) {
   const terms = useTerms();
   const [occurrences, setOccurrences] = useState<OccurrenceRecord[]>([]);
   const [stats, setStats] = useState<Map<string, TermQuizStats>>(new Map());
@@ -73,6 +87,47 @@ export function QuizPage({ target, active }: Props) {
   const loading = useRef(new Set<number>());
   /** Yeni sınav başlayınca eski isteklerin sonuçları yok sayılır. */
   const run = useRef(0);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const [popup, setPopup] = useState<Pick | null>(null);
+
+  // Cevaplanan sorudaki ve sonuç ekranındaki İngilizce metin: kelimeye tıkla ya da cümleyi seç (okuyucudaki gibi).
+  const answeredNow = phase === "running" && slots[current]?.chosen !== undefined;
+  useEffect(() => {
+    const root = pageRef.current;
+    if (!root) return;
+    const pickables = [...root.querySelectorAll("." + PICKABLE)];
+    pickables.forEach((el) => trackRoot(el, "flow"));
+    const onUp = (e: MouseEvent) => {
+      if (e.button !== 0 || (e.target as HTMLElement).closest("button")) return;
+      const result = pickFromPointer(e, "." + PICKABLE, "flow");
+      if (result) setPopup(result.pick);
+    };
+    root.addEventListener("mouseup", onUp);
+    return () => {
+      root.removeEventListener("mouseup", onUp);
+      pickables.forEach(untrackRoot);
+    };
+  }, [phase, current, answeredNow]);
+
+  // Soru değişince açık pencere kapanır.
+  useEffect(() => setPopup(null), [phase, current]);
+
+  const popups = popup && (
+    <>
+      {popup.kind === "word" ? (
+        <WordPopup
+          pick={popup}
+          target={fast}
+          onClose={() => setPopup(null)}
+          onTranslateSentence={() =>
+            setPopup((p) => (p?.kind === "word" ? { kind: "sentence", text: p.sentence, range: p.sentenceRange, rect: p.rect } : p))
+          }
+        />
+      ) : (
+        <SentencePopup pick={popup} target={fast} onClose={() => setPopup(null)} />
+      )}
+    </>
+  );
 
   // Ayar ve sonuç ekranında güncel sayılar.
   useEffect(() => {
@@ -165,7 +220,7 @@ export function QuizPage({ target, active }: Props) {
       .filter((x): x is { term: typeof x.term; s: TermQuizStats } => !!x.s && x.s.count > 0)
       .sort((a, b) => b.s.wrong - a.s.wrong || a.s.correct - b.s.correct);
     return (
-      <div className="quiz-page">
+      <div ref={pageRef} className="quiz-page">
         <h2>Çoktan seçmeli sınav</h2>
         <p className="muted">
           İşaretlediğin kelimeler her sınavda yapay zekânın kurduğu yeni bir cümleyle sorulur. Önce az sorulan ve çok yanlış
@@ -240,7 +295,8 @@ export function QuizPage({ target, active }: Props) {
     const wrong = answered.filter((s) => s.chosen !== s.question!.correctIndex);
     const skipped = slots.length - answered.length;
     return (
-      <div className="quiz-page">
+      <div ref={pageRef} className="quiz-page">
+        {popups}
         <h2>Sınav bitti</h2>
         <p className="quiz-score">
           {right.length} / {answered.length} doğru
@@ -272,7 +328,10 @@ export function QuizPage({ target, active }: Props) {
               return (
                 <div key={i} className="quiz-mistake">
                   <div className="quiz-mistake-term">{s.item.term.lemma}</div>
-                  <div className="quiz-sentence-small">{q.direction === "en-tr" ? <English question={q} /> : q.turkish}</div>
+                  <div className="quiz-sentence-small">
+                    <English question={q} pickable />
+                  </div>
+                  {q.direction === "tr-en" && <div className="muted">{q.turkish}</div>}
                   <div className="quiz-answer-right">Doğrusu: {q.options[q.correctIndex].text}</div>
                   <div className="quiz-answer-wrong">Senin cevabın: {q.options[s.chosen!].text}</div>
                 </div>
@@ -293,7 +352,8 @@ export function QuizPage({ target, active }: Props) {
   const isLast = current + 1 >= slots.length;
   const toTurkish = slot.item.direction === "en-tr";
   return (
-    <div className="quiz-page">
+    <div ref={pageRef} className="quiz-page">
+      {popups}
       <div className="quiz-head">
         <span>
           Soru {current + 1} / {slots.length}
@@ -324,16 +384,24 @@ export function QuizPage({ target, active }: Props) {
         ) : (
           question && (
             <>
-              <p className="quiz-sentence">{toTurkish ? <English question={question} /> : question.turkish}</p>
+              <p className="quiz-sentence">{toTurkish ? <English question={question} pickable={answered} /> : question.turkish}</p>
               <ol className="quiz-options">
                 {question.options.map((o, i) => {
                   const cls = !answered ? "" : o.correct ? "correct" : i === slot.chosen ? "wrong" : "dim";
                   return (
                     <li key={i}>
-                      <button className={`quiz-option ${cls}`} onClick={() => choose(i)} disabled={answered}>
-                        <span className="quiz-letter">{LETTERS[i]}</span>
-                        <span>{o.text}</span>
-                      </button>
+                      {answered ? (
+                        // Cevaptan sonra düğme değil: İngilizce şıklar okuyucudaki gibi tıklanıp seçilebilsin.
+                        <div className={`quiz-option ${cls}`}>
+                          <span className="quiz-letter">{LETTERS[i]}</span>
+                          <span className={toTurkish ? undefined : PICKABLE}>{o.text}</span>
+                        </div>
+                      ) : (
+                        <button className="quiz-option" onClick={() => choose(i)}>
+                          <span className="quiz-letter">{LETTERS[i]}</span>
+                          <span>{o.text}</span>
+                        </button>
+                      )}
                       {answered && !o.correct && o.why && <div className="quiz-why">{o.why}</div>}
                     </li>
                   );
@@ -341,9 +409,10 @@ export function QuizPage({ target, active }: Props) {
               </ol>
               {answered ? (
                 <>
+                  <p className="muted quiz-hint">İngilizce yazıda kelimeye tıkla ya da cümleyi seç: anlamı ve çevirisi açılır.</p>
                   {!toTurkish && (
                     <p className="quiz-target muted">
-                      Hedef kelime: <strong>{slot.item.term.lemma}</strong> — <English question={question} />
+                      Hedef kelime: <strong>{slot.item.term.lemma}</strong> — <English question={question} pickable />
                     </p>
                   )}
                   <div className="quiz-feedback">

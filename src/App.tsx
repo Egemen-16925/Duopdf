@@ -72,7 +72,11 @@ function App() {
         </div>
         {/* Sınav da sayfa değişince kaybolmasın. */}
         <main className={page === "quiz" ? "content page-layer" : "content page-layer inactive"}>
-          <QuizPage target={settings ? allTargets(settings).strong : null} active={page === "quiz"} />
+          <QuizPage
+            target={settings ? allTargets(settings).strong : null}
+            fast={settings ? allTargets(settings).fast : null}
+            active={page === "quiz"}
+          />
         </main>
         {page !== "reader" && page !== "quiz" && (
           <main className="content page-layer">
