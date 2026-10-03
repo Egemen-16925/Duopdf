@@ -1,4 +1,4 @@
-import { cpSync, readdirSync } from "node:fs";
+import { cpSync, readdirSync, rmSync } from "node:fs";
 import process from "node:process";
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
@@ -12,6 +12,18 @@ function copyPdfjsAssets(): Plugin {
       for (const dir of ["cmaps", "standard_fonts", "wasm", "iccs"]) {
         cpSync(`node_modules/pdfjs-dist/${dir}`, `public/pdfjs/${dir}`, { recursive: true });
       }
+    },
+  };
+}
+
+// public/__harness (yalnızca bu bilgisayardaki test ortamının örnek belgeleri, git'e girmez) Vite tarafından
+// dist'e kopyalanır; kurulum dosyasına girmesin diye derlemeden sonra silinir.
+function dropHarnessFiles(): Plugin {
+  return {
+    name: "drop-harness-files",
+    apply: "build",
+    closeBundle() {
+      rmSync("dist/__harness", { recursive: true, force: true });
     },
   };
 }
@@ -39,7 +51,7 @@ function copyTesseractAssets(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [react(), copyPdfjsAssets(), copyTesseractAssets()],
+  plugins: [react(), copyPdfjsAssets(), copyTesseractAssets(), dropHarnessFiles()],
   // Masaüstü uygulaması dosyaları diskten yükler; pdf.js yüzünden büyüyen paket sorun değil.
   build: { chunkSizeWarningLimit: 2000 },
 
