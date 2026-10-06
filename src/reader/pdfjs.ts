@@ -1,5 +1,6 @@
-import * as pdfjsLib from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Legacy derleme: eski Android WebView sürümlerinde (ör. Huawei) eksik olan JS özellikleri için yamalar içerir.
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import workerUrl from "./pdf.worker?worker&url";
 
 // pdf_viewer.mjs kütüphaneyi globalThis.pdfjsLib üzerinden bekler; bu modül ondan önce yüklenmeli.
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;

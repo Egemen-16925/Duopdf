@@ -53,7 +53,8 @@ function copyTesseractAssets(): Plugin {
 export default defineConfig(() => ({
   plugins: [react(), copyPdfjsAssets(), copyTesseractAssets(), dropHarnessFiles()],
   // Masaüstü uygulaması dosyaları diskten yükler; pdf.js yüzünden büyüyen paket sorun değil.
-  build: { chunkSizeWarningLimit: 2000 },
+  // Eski Android WebView sürümleri yeni sözdizimini (static blok, özel alan) çözemiyor.
+  build: { chunkSizeWarningLimit: 2000, target: ["chrome87", "edge88", "safari14"] },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

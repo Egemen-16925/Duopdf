@@ -1,8 +1,8 @@
 import "./pdfjs"; // pdf_viewer.mjs'ten önce yüklenmeli (globalThis.pdfjsLib)
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
-import "pdfjs-dist/web/pdf_viewer.css";
+import { EventBus, PDFLinkService, PDFViewer } from "pdfjs-dist/legacy/web/pdf_viewer.mjs";
+import "pdfjs-dist/legacy/web/pdf_viewer.css";
 import { useEffect, useRef, useState } from "react";
 import { trackRoot, untrackRoot } from "../learning/highlights";
 import { flashSentence, type Jump } from "../learning/jump";
