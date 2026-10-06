@@ -1,9 +1,10 @@
-import { speechAvailable, toggleSpeak, useSpeaking } from "./speech";
+import { toggleSpeak, useSpeaking, useSpeechAvailable } from "./speech";
 
 /** İngilizce metni sesli okuyan küçük düğme; okurken tekrar basılırsa durdurur. */
 export function SpeakButton({ text, label = "Sesli oku" }: { text: string; label?: string }) {
   const speaking = useSpeaking(text);
-  if (!speechAvailable()) return null;
+  const available = useSpeechAvailable();
+  if (!available) return null;
   return (
     <button
       className={speaking ? "icon-btn speak-btn speaking" : "icon-btn speak-btn"}

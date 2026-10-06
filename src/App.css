@@ -2407,3 +2407,8 @@ kbd {
 :root.android .nav-help {
   display: none;
 }
+
+/* Üst çubuk sayfanın adını zaten gösteriyor. */
+:root.android .page-title {
+  display: none;
+}

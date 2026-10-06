@@ -1,12 +1,22 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { isAndroid } from "../platform";
 import { getPrefs } from "../settings/prefs";
 
 /**
- * Sesli okuma: tarayıcının Web Speech API'si (Windows'taki yüklü sesler). İnternet ve API anahtarı
- * gerektirmez. Yalnızca İngilizce metin okunur.
+ * Sesli okuma: Windows'ta tarayıcının Web Speech API'si (yüklü sesler), Android'de WebView bunu
+ * desteklemediği için sistemin TextToSpeech motoru. API anahtarı gerektirmez. Yalnızca İngilizce okunur.
  */
+let nativeAvailable = false;
+
 export function speechAvailable(): boolean {
+  if (isAndroid) return nativeAvailable;
   return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
+/** Android'de motor açılışta geç hazırlanır; hazır olunca düğmeler görünsün. */
+export function useSpeechAvailable(): boolean {
+  return useSyncExternalStore(subscribe, speechAvailable);
 }
 
 /** Yüklü İngilizce sesler (sesler geç yüklenebilir; `useEnglishVoices` değişince günceller). */
@@ -37,12 +47,48 @@ function pickVoice(): SpeechSynthesisVoice | undefined {
 let speakingText: string | null = null;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+if (isAndroid) {
+  invoke<boolean>("speech_available")
+    .then((ok) => {
+      nativeAvailable = ok;
+      notify();
+    })
+    .catch(() => undefined);
+}
+
+function toggleNative(clean: string) {
+  const wasSame = speakingText === clean;
+  speakingText = null;
+  notify();
+  if (wasSame) {
+    invoke("stop_speaking").catch(() => undefined);
+    return;
+  }
+  speakingText = clean;
+  notify();
+  invoke("speak", { text: clean, rate: getPrefs().speechRate })
+    .catch(() => undefined)
+    .finally(() => {
+      if (speakingText === clean) {
+        speakingText = null;
+        notify();
+      }
+    });
+}
 
 /** Metni okur; aynı metin okunurken yeniden çağrılırsa durdurur. */
 export function toggleSpeak(text: string) {
   if (!speechAvailable()) return;
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return;
+  if (isAndroid) return toggleNative(clean);
   const wasSame = speakingText === clean;
   speechSynthesis.cancel();
   speakingText = null;
@@ -68,6 +114,12 @@ export function toggleSpeak(text: string) {
 
 export function stopSpeaking() {
   if (!speechAvailable()) return;
+  if (isAndroid) {
+    invoke("stop_speaking").catch(() => undefined);
+    speakingText = null;
+    notify();
+    return;
+  }
   speechSynthesis.cancel();
   speakingText = null;
   notify();
@@ -75,12 +127,6 @@ export function stopSpeaking() {
 
 /** Bu metin şu an okunuyor mu (düğmenin görünümü için). */
 export function useSpeaking(text: string): boolean {
-  const current = useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => speakingText,
-  );
+  const current = useSyncExternalStore(subscribe, () => speakingText);
   return current !== null && current === text.replace(/\s+/g, " ").trim();
 }

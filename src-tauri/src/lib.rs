@@ -190,6 +190,52 @@ async fn release_document(app: AppHandle, uri: String) -> Result<(), String> {
     }
 }
 
+/// Android: sesli okuma motoru (TextToSpeech) kullanılabilir mi.
+#[tauri::command]
+async fn speech_available(app: AppHandle) -> Result<bool, String> {
+    #[cfg(target_os = "android")]
+    {
+        #[derive(serde::Deserialize)]
+        struct Availability {
+            available: bool,
+        }
+        blocking(move || android::run::<Availability>(&app, "speechAvailable", serde_json::json!({})).map(|a| a.available)).await
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(false)
+    }
+}
+
+/// Android: İngilizce metni okur; okuma bitince (ya da durdurulunca) döner.
+#[tauri::command]
+async fn speak(app: AppHandle, text: String, rate: f32) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        let payload = serde_json::json!({ "text": text, "rate": rate });
+        blocking(move || android::run::<serde_json::Value>(&app, "speak", payload).map(|_| ())).await
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, text, rate);
+        Err("UNSUPPORTED".into())
+    }
+}
+
+#[tauri::command]
+async fn stop_speaking(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        blocking(move || android::run::<serde_json::Value>(&app, "stopSpeaking", serde_json::json!({})).map(|_| ())).await
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}
+
 /// Android: geri tuşu en başta basılınca uygulamayı arka plana alır.
 #[tauri::command]
 async fn move_to_background(app: AppHandle) -> Result<(), String> {
@@ -224,6 +270,9 @@ pub fn run() {
             create_document,
             release_document,
             move_to_background,
+            speech_available,
+            speak,
+            stop_speaking,
             oauth::oauth_listen,
             oauth::oauth_wait,
             oauth::oauth_cancel,

@@ -330,7 +330,7 @@ export function QuizPage({ target, fast, active }: Props) {
       .sort((a, b) => b.s.wrong - a.s.wrong || a.s.correct - b.s.correct);
     return (
       <div ref={pageRef} className="quiz-page">
-        <h2>Sınav ve tekrar</h2>
+        <h2 className="page-title">Sınav ve tekrar</h2>
         {!target && <p className="msg error">Ayarlar → Modeller'den bir güçlü model seç; soruları o hazırlar.</p>}
 
         <section className="profile-form quiz-review">

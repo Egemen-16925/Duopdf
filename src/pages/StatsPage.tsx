@@ -150,7 +150,7 @@ export function StatsPage({ active, onGo }: Props) {
   if (terms.length === 0 && attempts.length === 0) {
     return (
       <div className="stats-page">
-        <h2>İstatistik</h2>
+        <h2 className="page-title">İstatistik</h2>
         <div className="empty-state">
           <p>Henüz istatistik yok.</p>
           <p className="muted">Bir belge açıp bilmediğin kelimeleri işaretle, sonra sınav çöz; ilerlemen burada görünecek.</p>
@@ -162,7 +162,7 @@ export function StatsPage({ active, onGo }: Props) {
 
   return (
     <div className="stats-page">
-      <h2>İstatistik</h2>
+      <h2 className="page-title">İstatistik</h2>
 
       <div className="stat-tiles">
         <Tile label="Öğrenilen kelime" value={counts.known} note={`toplam ${terms.length} kelimeden`} />

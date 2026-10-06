@@ -7,6 +7,7 @@ import { deleteTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "../l
 import { STATUS_LABELS } from "../learning/WordPopup";
 import { quizStats, type TermQuizStats } from "../quiz/quiz";
 import { describeDue } from "../quiz/review";
+import { isAndroid } from "../platform";
 
 interface Props {
   onGoTo(occurrence: OccurrenceRecord): void;
@@ -99,7 +100,7 @@ export function WordsPage({ onGoTo, onGoReader }: Props) {
       {terms.length === 0 && (
         <div className="empty-state">
           <p>Henüz kelime işaretlemedin.</p>
-          <p className="muted">Okuyucuda bir kelimeye tıkla ya da birkaç kelimeyi seç, sonra durumunu işaretle.</p>
+          <p className="muted">Okuyucuda bir kelimeye {isAndroid ? "dokun" : "tıkla"} ya da birkaç kelimeyi seç, sonra durumunu işaretle.</p>
           {onGoReader && <button onClick={onGoReader}>Okuyucuya git</button>}
         </div>
       )}

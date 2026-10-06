@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.webkit.WebView
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -17,6 +20,8 @@ import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.security.KeyStore
+import java.util.Locale
+import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -44,15 +49,98 @@ class SecretArgs {
   lateinit var data: String
 }
 
+@InvokeArg
+class SpeakArgs {
+  lateinit var text: String
+  var rate: Float = 1f
+}
+
 /**
  * Duopdf'un Android'e özel işleri:
  * - Belge seçme (ACTION_OPEN_DOCUMENT) ve kalıcı okuma izni: belge uygulama yeniden açılınca da okunabilsin.
  * - Kaydetme yeri seçme (ACTION_CREATE_DOCUMENT): yedek ve çizimli PDF.
  * - API anahtarlarını Android Keystore'daki, cihazdan çıkarılamayan bir AES anahtarıyla şifreleme.
+ * - Sesli okuma: WebView'da Web Speech API olmadığı için Android'in TextToSpeech motoru.
  * Dosyaların içeriği burada okunmaz; Rust tarafı fs eklentisiyle doğrudan okur/yazar.
  */
 @TauriPlugin
 class NativePlugin(private val activity: Activity) : Plugin(activity) {
+  private var tts: TextToSpeech? = null
+  /** null: motor henüz hazırlanıyor. */
+  private var ttsReady: Boolean? = null
+  private val waitingForTts = mutableListOf<Invoke>()
+  /** Okunan cümle bitince (ya da durdurulunca) yanıtlanacak istekler. */
+  private val speaking = HashMap<String, Invoke>()
+
+  override fun load(webView: WebView) {
+    super.load(webView)
+    tts = TextToSpeech(activity) { status ->
+      val engine = tts
+      val ok = status == TextToSpeech.SUCCESS && engine != null && engine.isLanguageAvailable(Locale.US) >= TextToSpeech.LANG_AVAILABLE
+      if (ok) {
+        engine!!.language = Locale.US
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+          override fun onStart(utteranceId: String?) {}
+          override fun onDone(utteranceId: String?) = finishSpeaking(utteranceId)
+          @Deprecated("Deprecated in Java")
+          override fun onError(utteranceId: String?) = finishSpeaking(utteranceId)
+          override fun onStop(utteranceId: String?, interrupted: Boolean) = finishSpeaking(utteranceId)
+        })
+      }
+      val waiting = synchronized(waitingForTts) {
+        ttsReady = ok
+        waitingForTts.toList().also { waitingForTts.clear() }
+      }
+      waiting.forEach { resolveAvailability(it, ok) }
+    }
+  }
+
+  override fun onDestroy() {
+    tts?.shutdown()
+    super.onDestroy()
+  }
+
+  private fun resolveAvailability(invoke: Invoke, ok: Boolean) {
+    val res = JSObject()
+    res.put("available", ok)
+    invoke.resolve(res)
+  }
+
+  private fun finishSpeaking(id: String?) {
+    val invoke = synchronized(speaking) { speaking.remove(id) }
+    invoke?.resolve()
+  }
+
+  @Command
+  fun speechAvailable(invoke: Invoke) {
+    val ready = synchronized(waitingForTts) {
+      ttsReady.also { if (it == null) waitingForTts.add(invoke) }
+    }
+    if (ready != null) resolveAvailability(invoke, ready)
+  }
+
+  /** İngilizce metni okur; okuma bitince ya da durdurulunca yanıt verir. */
+  @Command
+  fun speak(invoke: Invoke) {
+    val args = invoke.parseArgs(SpeakArgs::class.java)
+    val engine = tts
+    if (ttsReady != true || engine == null) {
+      invoke.reject("Ses motoru hazır değil.")
+      return
+    }
+    val id = UUID.randomUUID().toString()
+    synchronized(speaking) { speaking[id] = invoke }
+    engine.setSpeechRate(args.rate)
+    if (engine.speak(args.text, TextToSpeech.QUEUE_FLUSH, null, id) != TextToSpeech.SUCCESS) finishSpeaking(id)
+  }
+
+  @Command
+  fun stopSpeaking(invoke: Invoke) {
+    tts?.stop()
+    val pending = synchronized(speaking) { speaking.values.toList().also { speaking.clear() } }
+    pending.forEach { it.resolve() }
+    invoke.resolve()
+  }
 
   @Command
   fun pickDocuments(invoke: Invoke) {
