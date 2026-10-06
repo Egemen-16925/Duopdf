@@ -155,6 +155,15 @@ describe("stored API keys", () => {
     expect(JSON.stringify(storeData.get("profiles"))).not.toContain('"k2"');
   });
 
+  it("accepts keys encrypted by Android Keystore", async () => {
+    storeData.clear();
+    const androidKey = { ...router, apiKey: "android-key" };
+    storeData.set("profiles", [androidKey]);
+    invokeMock.mockResolvedValueOnce("aks:c2VhbGVk");
+    await loadProviderSettings();
+    expect(storeData.get("profiles")).toEqual([{ id: "b", name: "OpenRouter", baseUrl: router.baseUrl, apiKeyEnc: "aks:c2VhbGVk" }]);
+  });
+
   it("refuses to save when encryption gives an unexpected answer instead of dropping the key", async () => {
     storeData.clear();
     const fresh = { ...router, apiKey: "never-encrypted-before" };

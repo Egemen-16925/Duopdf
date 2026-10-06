@@ -169,12 +169,12 @@ async function encryptKey(apiKey: string): Promise<Pick<StoredProfile, "apiKey" 
   if (known) return { apiKeyEnc: known };
   try {
     const enc = await invoke<string>("protect_secret", { plain: apiKey });
-    // Beklenmeyen bir yanıt anahtarı sessizce silmesin.
-    if (typeof enc !== "string" || !enc.startsWith("dpapi:")) throw new Error("beklenmeyen yanıt");
+    // Beklenmeyen bir yanıt anahtarı sessizce silmesin (Windows: DPAPI, Android: Keystore).
+    if (typeof enc !== "string" || !/^(dpapi|aks):/.test(enc)) throw new Error("beklenmeyen yanıt");
     encrypted.set(apiKey, enc);
     return { apiKeyEnc: enc };
   } catch (e) {
-    // Şifrelemesi henüz olmayan platformlar (Android, Faz 9) düz metinle çalışmaya devam eder.
+    // Şifrelemesi olmayan platformlar (ör. Linux) düz metinle çalışmaya devam eder.
     if (String(e) === "UNSUPPORTED") return { apiKey };
     throw new Error(`API anahtarı şifrelenemedi: ${e}`);
   }
