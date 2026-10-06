@@ -10,6 +10,9 @@
         "height": 800,
         "maximized": true
       }
-    ]
+    ],
+    "security": {
+      "csp": null
+    }
   }
 }
