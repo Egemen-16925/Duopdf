@@ -9,7 +9,7 @@ const RATES: { rate: number; label: string }[] = [
 ];
 
 const THEMES: { theme: Theme; label: string }[] = [
-  { theme: "system", label: "Sistem (Windows ayarı)" },
+  { theme: "system", label: isAndroid ? "Sistem" : "Sistem (Windows ayarı)" },
   { theme: "light", label: "Açık" },
   { theme: "dark", label: "Koyu" },
 ];

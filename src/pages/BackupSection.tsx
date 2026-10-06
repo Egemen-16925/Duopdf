@@ -5,6 +5,7 @@ import { clearLearningData, importLearningData, summarize, type BackupSummary } 
 import { exportToFile, readBackupFile } from "../learning/backupFiles";
 import { refreshTerms } from "../learning/store";
 import { deleteCloudData, getSyncState } from "../sync/manager";
+import { isAndroid } from "../platform";
 
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
 
@@ -82,8 +83,10 @@ export function BackupSection() {
       <h2>Yedek</h2>
       <p className="muted">
         Kelimelerin, geçtikleri cümleler, cümle çevirilerin, kalem çizimlerin, son açılan belgeler ve yapay zekâ önbelleği tek bir JSON dosyasına yedeklenir. API
-        anahtarın yedeğe girmez. Geliştirme sürümü (<code>tauri dev</code>) ile kurulu uygulama verilerini ayrı tutar; aralarında
-        taşımak için de yedeği kullan.
+        anahtarın yedeğe girmez.{" "}
+        {isAndroid
+          ? "Bilgisayardaki Duopdf ile telefon arasında verini taşımak için de yedeği kullan."
+          : <>Geliştirme sürümü (<code>tauri dev</code>) ile kurulu uygulama verilerini ayrı tutar; aralarında taşımak için de yedeği kullan.</>}
       </p>
       <div className="actions">
         <button onClick={doExport} disabled={busy}>

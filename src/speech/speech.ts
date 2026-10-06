@@ -20,15 +20,20 @@ export function useSpeechAvailable(): boolean {
 }
 
 /** Yüklü İngilizce sesler (sesler geç yüklenebilir; `useEnglishVoices` değişince günceller). */
+/** Web Speech API var mı (Android WebView'da yok; orada sistemin metin okuma motoru kullanılır). */
+function webSpeech(): boolean {
+  return !isAndroid && typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
 export function englishVoices(): SpeechSynthesisVoice[] {
-  if (!speechAvailable()) return [];
+  if (!webSpeech()) return [];
   return speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
 }
 
 export function useEnglishVoices(): SpeechSynthesisVoice[] {
   const [voices, setVoices] = useState(englishVoices);
   useEffect(() => {
-    if (!speechAvailable()) return;
+    if (!webSpeech()) return;
     const update = () => setVoices(englishVoices());
     speechSynthesis.addEventListener("voiceschanged", update);
     update();

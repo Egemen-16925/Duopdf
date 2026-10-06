@@ -8,6 +8,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { StatsPage } from "./pages/StatsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
+import { ErrorBoundary } from "./reader/ErrorBoundary";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { onBackButtonPress } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
@@ -192,34 +193,39 @@ function App() {
         </div>
         {/* Sınav da sayfa değişince kaybolmasın. */}
         <main className={page === "quiz" ? "content page-layer" : "content page-layer inactive"}>
-          <QuizPage
-            target={settings ? allTargets(settings).strong : null}
-            fast={settings ? allTargets(settings).fast : null}
-            active={page === "quiz"}
-          />
+          <ErrorBoundary label="Sınav sayfası gösterilemedi">
+            <QuizPage
+              target={settings ? allTargets(settings).strong : null}
+              fast={settings ? allTargets(settings).fast : null}
+              active={page === "quiz"}
+            />
+          </ErrorBoundary>
         </main>
         {page !== "reader" && page !== "quiz" && (
           <main className="content page-layer">
-            {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
-            {page === "words" && <WordsPage onGoTo={goToOccurrence} onGoReader={() => setPage("reader")} />}
-            {page === "stats" && <StatsPage active onGo={setPage} />}
-            {settings && page === "settings" && (
-              <SettingsPage
-                settings={settings}
-                onChange={updateSettings}
-                modelLists={modelLists}
-                onModelList={setModelList}
-                onOpenModelTest={isAndroid ? () => setPage("modelTest") : undefined}
-              />
-            )}
-            {settings && page === "modelTest" && (
-              <ModelTestPage
-                settings={settings}
-                onChange={updateSettings}
-                modelLists={modelLists}
-                onModelList={setModelList}
-              />
-            )}
+            {/* Bir sayfa çökerse uygulamanın geri kalanı (alt çubuk, okuyucu) çalışmaya devam etsin. */}
+            <ErrorBoundary key={page} label="Sayfa gösterilemedi">
+              {loadError && <p className="msg error">Ayarlar yüklenemedi: {loadError}</p>}
+              {page === "words" && <WordsPage onGoTo={goToOccurrence} onGoReader={() => setPage("reader")} />}
+              {page === "stats" && <StatsPage active onGo={setPage} />}
+              {settings && page === "settings" && (
+                <SettingsPage
+                  settings={settings}
+                  onChange={updateSettings}
+                  modelLists={modelLists}
+                  onModelList={setModelList}
+                  onOpenModelTest={isAndroid ? () => setPage("modelTest") : undefined}
+                />
+              )}
+              {settings && page === "modelTest" && (
+                <ModelTestPage
+                  settings={settings}
+                  onChange={updateSettings}
+                  modelLists={modelLists}
+                  onModelList={setModelList}
+                />
+              )}
+            </ErrorBoundary>
           </main>
         )}
       </div>
