@@ -84,7 +84,26 @@ npm test              # birim testleri (Vitest)
 npm run tauri build   # Windows kurulum dosyaları: src-tauri/target/release/bundle/
 ```
 
-Yapı: `src/ai` (sağlayıcıdan bağımsız yapay zekâ istemcisi ve sürümlü istemler), `src/reader` ve `src/formats` (belge görüntüleyiciler), `src/learning` (kelime eşleştirme, vurgu, çeviri), `src/quiz` (sınav ve aralıklı tekrar), `src/ocr`, `src/ink`, `src/sync` (Google Drive), `src-tauri` (Rust: dosya okuma, Office dönüştürme, DPAPI, OAuth).
+### Android
+
+Gerekenler: Android Studio (SDK ve NDK), Rust'ın Android hedefleri (`rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android`) ve Windows'ta **Geliştirici modu** (Ayarlar → Sistem → Geliştiriciler için; Tauri derlenen kütüphaneyi sembolik bağlantıyla yerleştirir). Ortam değişkenleri: `JAVA_HOME` (Android Studio'nun `jbr` klasörü), `ANDROID_HOME` (SDK), `NDK_HOME` (SDK içindeki `ndk/<sürüm>`).
+
+```bash
+npm run tauri android dev                 # bağlı cihazda / emülatörde geliştirme
+npm run tauri android build -- --aab      # Play için AAB: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/
+```
+
+AAB, `src-tauri/gen/android/keystore.properties` varsa onunla imzalanır (git'e girmez):
+
+```properties
+storeFile=C:/Users/<kullanıcı>/duopdf-upload.jks
+keyAlias=upload
+password=<anahtar deposunun şifresi>
+```
+
+Android'de belgeler sistem seçicisiyle açılır ve kalıcı okuma izniyle `content://` adresi olarak tutulur; API anahtarları Android Keystore ile şifrelenir; sesli okuma Android'in metin okuma motorunu kullanır. Google Drive eşitlemesi Android'de henüz yok; veriler yedek dosyasıyla taşınır.
+
+Yapı: `src/ai` (sağlayıcıdan bağımsız yapay zekâ istemcisi ve sürümlü istemler), `src/reader` ve `src/formats` (belge görüntüleyiciler), `src/learning` (kelime eşleştirme, vurgu, çeviri), `src/quiz` (sınav ve aralıklı tekrar), `src/ocr`, `src/ink`, `src/sync` (Google Drive), `src-tauri` (Rust: dosya okuma, Office dönüştürme, DPAPI, OAuth), `src-tauri/gen/android` (Android projesi; `NativePlugin.kt`: dosya seçici, Keystore, metin okuma).
 
 Teknolojiler: Tauri 2, React, TypeScript, Vite, Dexie (IndexedDB), pdf.js, Tesseract.js, pdf-lib, mammoth, DOMPurify, zod.
 
