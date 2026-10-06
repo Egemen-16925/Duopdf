@@ -9,6 +9,10 @@ import { StatsPage } from "./pages/StatsPage";
 import { WordsPage } from "./pages/WordsPage";
 import { ReaderPage, type ReaderHandle } from "./reader/ReaderPage";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { onBackButtonPress } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
+import { isAndroid } from "./platform";
+import { Icon, type IconName } from "./ui/icons";
 import { initSync, startAutoSync, syncBeforeClose } from "./sync/manager";
 import { ConfirmHost } from "./ui/confirm";
 import { ShortcutsDialog } from "./ui/ShortcutsDialog";
@@ -24,6 +28,24 @@ const NAV: { id: Page; label: string }[] = [
   { id: "settings", label: "Ayarlar" },
   { id: "modelTest", label: "Model testi" },
 ];
+
+/** Android'in alt gezinme çubuğu (model testi Ayarlar'ın içinden açılır). */
+const MOBILE_NAV: { id: Page; label: string; icon: IconName }[] = [
+  { id: "reader", label: "Okuyucu", icon: "reader" },
+  { id: "words", label: "Kelimeler", icon: "words" },
+  { id: "quiz", label: "Sınav", icon: "quiz" },
+  { id: "stats", label: "İstatistik", icon: "stats" },
+  { id: "settings", label: "Ayarlar", icon: "settings" },
+];
+
+const TITLES: Record<Page, string> = {
+  reader: "Okuyucu",
+  words: "Kelimeler",
+  quiz: "Sınav",
+  stats: "İstatistik",
+  settings: "Ayarlar",
+  modelTest: "Model testi",
+};
 
 const NO_AI = { fast: null, strong: null, vision: null };
 
@@ -103,6 +125,24 @@ function App() {
     };
   }, []);
 
+  // Android geri tuşu: açık pencereyi kapat → belge listesine / okuyucuya dön → uygulamayı arka plana al.
+  useEffect(() => {
+    if (!isAndroid) return;
+    const listener = onBackButtonPress(() => {
+      if (document.querySelector(".confirm-dialog")) {
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        return;
+      }
+      const current = pageRef.current;
+      if (current === "modelTest") setPage("settings");
+      else if (current !== "reader") setPage("reader");
+      else if (!readerRef.current?.back()) invoke("move_to_background").catch(() => undefined);
+    });
+    return () => {
+      listener.then((l) => l.unregister()).catch(() => undefined);
+    };
+  }, []);
+
   function goToOccurrence(occurrence: OccurrenceRecord) {
     setPage("reader");
     readerRef.current?.openAt(occurrence);
@@ -118,8 +158,18 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <nav className="topbar">
+    <div className={isAndroid ? "app app-android" : "app"}>
+      {isAndroid && page !== "reader" && (
+        <header className="appbar">
+          {page === "modelTest" && (
+            <button className="appbar-back" onClick={() => setPage("settings")} aria-label="Geri">
+              <Icon name="back" />
+            </button>
+          )}
+          <h1>{TITLES[page]}</h1>
+        </header>
+      )}
+      <nav className="topbar" hidden={isAndroid}>
         <span className="brand">Duopdf</span>
         {NAV.map((item, i) => (
           <button
@@ -159,6 +209,7 @@ function App() {
                 onChange={updateSettings}
                 modelLists={modelLists}
                 onModelList={setModelList}
+                onOpenModelTest={isAndroid ? () => setPage("modelTest") : undefined}
               />
             )}
             {settings && page === "modelTest" && (
@@ -172,6 +223,26 @@ function App() {
           </main>
         )}
       </div>
+      {isAndroid && (
+        <nav className="bottom-nav">
+          {MOBILE_NAV.map((item) => {
+            const active = page === item.id || (item.id === "settings" && page === "modelTest");
+            return (
+              <button
+                key={item.id}
+                className={active ? "bnav-item active" : "bnav-item"}
+                onClick={() => setPage(item.id)}
+                aria-current={active ? "page" : undefined}
+              >
+                <span className="bnav-icon">
+                  <Icon name={item.icon} />
+                </span>
+                <span className="bnav-label">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
       <ConfirmHost />
       {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} />}
     </div>
