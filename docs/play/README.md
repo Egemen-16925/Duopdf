@@ -5,8 +5,9 @@
 | `icon-512.png` | Uygulama simgesi | 512 × 512, tam kare (köşeleri Play yuvarlar) |
 | `feature-1024x500.png` | Öne çıkan grafik | 1024 × 500, 24 bit PNG |
 | `screenshots/01.png` … `05.png` | Telefon ekran görüntüleri | 1080 × 1920 (9:16) |
+| `tablet/01.png` … `05.png` | 7 inç ve 10 inç tablet ekran görüntüleri (ikisine de aynıları yüklenebilir) | 1920 × 1080 (16:9) |
 
-Ekran görüntüleri Android emülatöründeki gerçek uygulamadan alındı. Örnek belge bu iş için yazılmış özgün bir ders notudur (`Lecture 3 — Version Control and Team Collaboration`). Kelime anlamları, çeviriler ve sınav soruları elle yazılmış doğru Türkçe yanıtlardır; uygulamada bunları kullanıcının seçtiği yapay zekâ modeli üretir.
+Ekran görüntüleri Android emülatöründeki gerçek uygulamadan alındı (telefon: 1344 × 2992, tablet: 2560 × 1600). Örnek belge bu iş için yazılmış özgün bir ders notudur (`Lecture 3 — Version Control and Team Collaboration`). Kelime anlamları, çeviriler ve sınav soruları elle yazılmış doğru Türkçe yanıtlardır; uygulamada bunları kullanıcının seçtiği yapay zekâ modeli üretir.
 
 ## Kısa açıklama (en çok 80 karakter)
 

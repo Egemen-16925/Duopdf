@@ -2178,8 +2178,10 @@ kbd {
   padding: 16px;
 }
 
-:root.android .settings {
-  grid-template-columns: 1fr;
+@media (max-width: 839px) {
+  :root.android .settings {
+    grid-template-columns: 1fr;
+  }
 }
 
 :root.android .content section,
@@ -2419,48 +2421,108 @@ kbd {
 }
 
 /* Kelime listesi: telefonda iki satır (kelime + anlam | sil; altında puan, tekrar, durum). */
-:root.android .term-main {
-  flex-wrap: wrap;
-  row-gap: 6px;
-  padding: 10px 6px 10px 14px;
-}
+@media (max-width: 839px) {
+  :root.android .term-main {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 10px 6px 10px 14px;
+  }
 
-:root.android .term-toggle {
-  order: 0;
-  flex: 1 1 calc(100% - 60px);
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
+  :root.android .term-toggle {
+    order: 0;
+    flex: 1 1 calc(100% - 60px);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
 
-:root.android .term-lemma {
-  font-size: 1.05rem;
-}
+  :root.android .term-lemma {
+    font-size: 1.05rem;
+  }
 
-:root.android .term-meaning {
-  margin-left: 0;
-}
+  :root.android .term-meaning {
+    margin-left: 0;
+  }
 
-:root.android .term-main > .icon-btn {
-  order: 1;
-}
+  :root.android .term-main > .icon-btn {
+    order: 1;
+  }
 
-:root.android .term-score,
-:root.android .term-due,
-:root.android .term-count {
-  order: 2;
-  font-size: 0.85rem;
-}
+  :root.android .term-score,
+  :root.android .term-due,
+  :root.android .term-count {
+    order: 2;
+    font-size: 0.85rem;
+  }
 
-:root.android .term-main .status-select {
-  order: 2;
-  margin-left: auto;
-  margin-right: 8px;
-  width: auto;
-  min-height: 40px;
-  padding: 6px 12px;
+  :root.android .term-main .status-select {
+    order: 2;
+    margin-left: auto;
+    margin-right: 8px;
+    width: auto;
+    min-height: 40px;
+    padding: 6px 12px;
+  }
 }
 
 :root.android .words-filters {
   flex-wrap: nowrap;
+}
+
+/* Tablet (geniş ekran): alt çubuk yerine solda dikey gezinme şeridi, ortalanmış alt pencereler. */
+@media (min-width: 840px) {
+  .app-android {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .app-android > .appbar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .app-android > .page-stack {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .app-android > .bottom-nav {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 28px 0;
+  }
+
+  .app-android .bnav-item {
+    flex: 0 0 auto;
+    padding: 2px 0;
+  }
+
+  .app-android .bnav-icon {
+    width: 56px;
+  }
+
+  .fab {
+    bottom: 24px;
+    right: 24px;
+  }
+
+  :root.android .word-popup {
+    left: 96px !important;
+    right: 0;
+    width: min(680px, calc(100% - 128px)) !important;
+    margin: 0 auto;
+  }
+
+  :root.android .library {
+    padding: 40px 32px 96px;
+  }
+
+  /* Altı kutu 3 + 3 dizilsin (5 + 1 yerine). */
+  :root.android .stat-tiles {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
