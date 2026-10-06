@@ -1,6 +1,6 @@
 [package]
 name = "duopdf"
-version = "1.0.0"
+version = "1.1.0"
 description = "AI destekli, İngilizce öğrenmeye yardım eden PDF okuyucu"
 authors = ["Egemen"]
 license = "MIT"
