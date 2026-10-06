@@ -77,8 +77,8 @@ export function PrefsSection() {
         <span>
           Parmakla çizim
           <small>
-            Kapalıyken (önerilen) yalnızca kalem çizer; parmak sayfayı kaydırır ve iki parmakla yakınlaştırır, kalemle yazarken
-            avuç içi dokunuşları yok sayılır. Kalemi olmayan dokunmatik ekranlarda açın.
+            Kalem kullanılmadıkça parmak her zaman çizer. Kapalıyken (önerilen) kalem algılandığında yalnızca kalem çizer;
+            parmak sayfayı kaydırır ve iki parmakla yakınlaştırır, kalemle yazarken avuç içi dokunuşları yok sayılır.
           </small>
         </span>
       </label>

@@ -1,6 +1,6 @@
 import { caretFromPoint, pickAtPoint, pickFromRange, type Pick } from "../learning/pick";
 import { NO_TEXT, type TextMode } from "../learning/textMap";
-import { getPrefs } from "../settings/prefs";
+import { fingerDraws } from "./pen";
 import { getInkTools, subscribeInkTools } from "./tools";
 import { capture, coalesced, TouchPanner } from "./touchPan";
 
@@ -162,7 +162,7 @@ export function attachGlow(opts: GlowOptions): () => void {
 
   const onDown = (e: PointerEvent) => {
     if (!active()) return;
-    if (e.pointerType === "touch" && !getPrefs().fingerDraw) {
+    if (e.pointerType === "touch" && !fingerDraws()) {
       panner.down(e);
       return;
     }

@@ -1,5 +1,5 @@
 import type { DuopdfDB, StrokeRecord } from "../db/db";
-import { getPrefs } from "../settings/prefs";
+import { fingerDraws } from "./pen";
 import { flatten, pointerWeight, simplify, strokeHits, type Point } from "./geometry";
 import { drawStroke, fitCanvas } from "./render";
 import { InkHistory, loadStrokes } from "./strokes";
@@ -120,8 +120,8 @@ export class InkSurface {
     canvas.addEventListener("pointerdown", (e) => {
       const { tool } = getInkTools();
       if (tool !== "pen" && tool !== "eraser") return;
-      // Parmak: çizim kapalıysa kaydır/yakınlaştır; kalem değerken (avuç içi) yok say.
-      if (e.pointerType === "touch" && (!getPrefs().fingerDraw || this.penDown)) {
+      // Parmak: kalem varken (ve parmakla çizim kapalıyken) kaydır/yakınlaştır; kalem değerken (avuç içi) yok say.
+      if (e.pointerType === "touch" && (!fingerDraws() || this.penDown)) {
         if (!this.penDown) this.panner.down(e);
         return;
       }
