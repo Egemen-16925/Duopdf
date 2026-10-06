@@ -28,7 +28,7 @@ android {
     namespace = "com.egemen.duopdf"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.egemen.duopdf"
+        applicationId = "com.duopdf"
         minSdk = 24
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
