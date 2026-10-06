@@ -11,6 +11,9 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 const TIMEOUT: Duration = Duration::from_secs(120);
 
+// Otomasyonla açılan dosyalarda Office makroları varsayılan olarak çalışır; uzantısı .docx/.pptx olan
+// ama içinde makro taşıyan bir dosya kod çalıştırmasın diye `AutomationSecurity = 3` (makrolar kapalı).
+
 /// Word belgesini PDF'e çevirir. Yalnızca kendi açtığı Word örneğini kapatır.
 const WORD_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
@@ -18,6 +21,7 @@ $word = New-Object -ComObject Word.Application
 try {
   $word.Visible = $false
   $word.DisplayAlerts = 0
+  $word.AutomationSecurity = 3
   $doc = $word.Documents.Open($env:DUOPDF_SRC, $false, $true, $false)
   try { $doc.ExportAsFixedFormat($env:DUOPDF_OUT, 17) } finally { $doc.Close($false) }
 } finally {
@@ -31,10 +35,13 @@ const POWERPOINT_SCRIPT: &str = r#"
 $ErrorActionPreference = 'Stop'
 $wasRunning = [bool](Get-Process POWERPNT -ErrorAction SilentlyContinue)
 $pp = New-Object -ComObject PowerPoint.Application
+$security = $pp.AutomationSecurity
 try {
+  $pp.AutomationSecurity = 3
   $pres = $pp.Presentations.Open($env:DUOPDF_SRC, -1, 0, 0)
   try { $pres.SaveAs($env:DUOPDF_OUT, 32) } finally { $pres.Close() }
 } finally {
+  $pp.AutomationSecurity = $security
   if (-not $wasRunning -and $pp.Presentations.Count -eq 0) { $pp.Quit() }
   [void][Runtime.InteropServices.Marshal]::ReleaseComObject($pp)
 }
