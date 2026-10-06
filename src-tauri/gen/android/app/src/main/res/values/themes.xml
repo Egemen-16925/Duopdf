@@ -1,0 +1,8 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Kenar boşlukları (durum ve gezinme çubuğu) uygulamanın üst/alt çubuklarıyla aynı renkte görünsün. -->
+    <style name="Theme.duopdf" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/chrome</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

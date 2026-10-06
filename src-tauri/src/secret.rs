@@ -93,16 +93,37 @@ pub fn decrypt(stored: &str) -> Result<String, String> {
     String::from_utf8(imp::unprotect(&bytes)?).map_err(|_| "Şifreli anahtar bozuk.".into())
 }
 
-/// API anahtarını şifreler ("dpapi:<base64>").
+/// API anahtarını şifreler: Windows'ta "dpapi:<base64>", Android'de Keystore ile "aks:<base64>".
 #[tauri::command]
-pub fn protect_secret(plain: String) -> Result<String, String> {
-    encrypt(&plain)
+pub async fn protect_secret(app: tauri::AppHandle, plain: String) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    return mobile_secret(app, "protect", plain).await;
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        encrypt(&plain)
+    }
 }
 
 /// Şifreli API anahtarını çözer.
 #[tauri::command]
-pub fn unprotect_secret(data: String) -> Result<String, String> {
-    decrypt(&data)
+pub async fn unprotect_secret(app: tauri::AppHandle, data: String) -> Result<String, String> {
+    #[cfg(target_os = "android")]
+    return mobile_secret(app, "unprotect", data).await;
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = app;
+        decrypt(&data)
+    }
+}
+
+#[cfg(target_os = "android")]
+async fn mobile_secret(app: tauri::AppHandle, command: &'static str, data: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::android::run::<crate::android::Data>(&app, command, serde_json::json!({ "data": data })).map(|d| d.data)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(all(test, windows))]

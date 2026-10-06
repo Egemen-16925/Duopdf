@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
+import { isAndroid } from "../platform";
+import { createAndroidFile } from "../reader/files";
 import { LineCapStyle, PDFDocument, rgb, type PDFPage } from "pdf-lib";
 import type { StrokeRecord } from "../db/db";
 import { toPoints } from "./geometry";
@@ -122,9 +124,12 @@ export async function inkedPdfFromImage(image: Blob, width: number, height: numb
 /** Kaydetme penceresini açar ve PDF'i yazar; vazgeçilirse null döner. */
 export async function saveInkedPdf(docName: string, bytes: Uint8Array): Promise<string | null> {
   const base = docName.replace(/\.[^.]+$/, "");
-  const path = await save({ defaultPath: `${base} (notlu).pdf`, filters: [{ name: "PDF", extensions: ["pdf"] }] });
-  if (!path) return null;
+  const defaultName = `${base} (notlu).pdf`;
+  const target = isAndroid
+    ? await createAndroidFile(defaultName, "application/pdf")
+    : await save({ defaultPath: defaultName, filters: [{ name: "PDF", extensions: ["pdf"] }] }).then((p) => (p ? { path: p, name: p } : null));
+  if (!target) return null;
   // Bayt dizisi JSON'a çevrilmeden gider; yol başlıkta (ASCII olmayan harfler için kodlanmış).
-  await invoke("write_pdf", bytes, { headers: { path: encodeURIComponent(path) } });
-  return path;
+  await invoke("write_pdf", bytes, { headers: { path: encodeURIComponent(target.path) } });
+  return target.name;
 }

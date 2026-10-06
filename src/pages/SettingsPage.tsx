@@ -15,12 +15,15 @@ import { BackupSection } from "./BackupSection";
 import { ModelInput } from "./ModelInput";
 import { PrefsSection } from "./PrefsSection";
 import { SyncSection } from "./SyncSection";
+import { isAndroid } from "../platform";
 
 interface Props {
   settings: ProviderSettings;
   onChange(next: ProviderSettings): Promise<void>;
   modelLists: Record<string, string[]>;
   onModelList(profileId: string, models: string[]): void;
+  /** Android: model testi alt çubukta değil, buradan açılır. */
+  onOpenModelTest?(): void;
 }
 
 type Status = { kind: "info" | "ok" | "error"; text: string } | null;
@@ -43,7 +46,7 @@ function errorText(e: unknown): string {
 }
 
 /** Her rol için sağlayıcı + model seçimi. Değişiklikler kısa bir gecikmeyle kendiliğinden kaydedilir. */
-function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
+function RolesSection({ settings, onChange, modelLists, onModelList, onOpenModelTest }: Props) {
   const [roles, setRoles] = useState(settings.roles);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
@@ -74,6 +77,11 @@ function RolesSection({ settings, onChange, modelLists, onModelList }: Props) {
   return (
     <section className="profile-form">
       <h2>Modeller</h2>
+      {onOpenModelTest && (
+        <button className="secondary model-test-link" onClick={onOpenModelTest}>
+          Modelleri test et
+        </button>
+      )}
       <p className="muted">
         Her rol farklı bir sağlayıcıdan (farklı API anahtarıyla) çalışabilir. Bir istek hata verirse (istek sınırı, zaman aşımı,
         sunucu hatası, bozuk yanıt) yedekle bir kez daha denenir. Yedek seçilmezse hızlı ve güçlü model birbirinin yedeği olur.
@@ -308,7 +316,8 @@ export function SettingsPage(props: Props) {
           {status && <p className={`msg ${status.kind}`}>{status.text}</p>}
         </section>
 
-        <SyncSection />
+        {/* Android'de Google girişi ayrı bir OAuth istemcisi ister; şimdilik yedek dosyasıyla taşınır. */}
+        {!isAndroid && <SyncSection />}
 
         <PrefsSection />
 

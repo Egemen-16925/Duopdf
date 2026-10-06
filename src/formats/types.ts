@@ -29,6 +29,15 @@ export function formatFromPath(path: string): DocFormat | null {
   return EXTENSIONS[ext] ?? null;
 }
 
+/** Adından biçimi anlaşılmayan dosya için ilk baytlara bakar (PDF ve resimler). */
+export function sniffFormat(bytes: Uint8Array): DocFormat | null {
+  const starts = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
+  if (starts(0x25, 0x50, 0x44, 0x46)) return "pdf"; // %PDF
+  if (starts(0x89, 0x50, 0x4e, 0x47) || starts(0xff, 0xd8, 0xff) || starts(0x42, 0x4d)) return "image";
+  if (starts(0x52, 0x49, 0x46, 0x46) && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP") return "image";
+  return null;
+}
+
 /** PDF dışındaki biçimler akan metin olarak gösterilir. */
 export interface ReflowSection {
   title: string;

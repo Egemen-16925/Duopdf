@@ -11,13 +11,15 @@ import {
   saveOriginalPage,
   savePosition,
 } from "../db/documents";
-import { formatFromPath } from "../formats/types";
+import { formatFromPath, sniffFormat } from "../formats/types";
+import { isAndroid, isContentUri } from "../platform";
+import { Icon } from "../ui/icons";
 import type { Jump } from "../learning/jump";
 import type { Pick } from "../learning/pick";
 import { SentencePopup } from "../learning/SentencePopup";
 import { WordPopup, type PickLocation } from "../learning/WordPopup";
 import type { AiTargets } from "../settings/providers";
-import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, sha256Hex } from "./files";
+import { fileName, FileNotFoundError, pickDocumentFiles, readDocumentBytes, releaseAndroidFile, sha256Hex, type PickedFile } from "./files";
 import { disposeContent, loadContent, openErrorText, pageCountOf, type LoadedContent } from "./loadContent";
 import { convertWithOffice, officeAppFor, officeAvailability, type OfficeAvailability } from "./office";
 import { loadDocument } from "./pdfjs";
@@ -49,6 +51,8 @@ export interface ReaderHandle {
   closeActiveTab(): void;
   /** Sonraki/önceki sekmeye geçer (Ctrl+Tab); belgeler listesi de bir sekme sayılır. */
   cycleTab(step: 1 | -1): void;
+  /** Android geri tuşu: açık pencereyi kapatır ya da belge listesine döner; yapacak bir şey yoksa false. */
+  back(): boolean;
 }
 
 interface Props {
@@ -188,16 +192,23 @@ export function ReaderPage({ ai, ref }: Props) {
   }
 
   /** Belgeyi açar ve sekmesindeki belge kimliğini döndürür (açılamazsa null). */
-  async function openPath(path: string, expected?: DocumentRecord): Promise<number | null> {
-    const format = formatFromPath(path);
-    if (!format) {
-      setNotice({ kind: "error", text: `Bu dosya türü desteklenmiyor: ${fileName(path)}` });
+  async function openPath(path: string, expected?: DocumentRecord, pickedName?: string): Promise<number | null> {
+    // Android'de yol bir content:// adresidir; ad seçiciden ya da kayıttan gelir.
+    const name = pickedName ?? expected?.name ?? fileName(path);
+    let format = formatFromPath(name) ?? (isContentUri(path) ? null : formatFromPath(path));
+    if (!format && !isContentUri(path)) {
+      setNotice({ kind: "error", text: `Bu dosya türü desteklenmiyor: ${name}` });
       return null;
     }
     setLoading(true);
     setNotice(null);
     try {
       const bytes = await readDocumentBytes(path);
+      format ??= sniffFormat(bytes);
+      if (!format) {
+        setNotice({ kind: "error", text: `Bu dosya türü desteklenmiyor: ${name}` });
+        return null;
+      }
       // Hash'i önce al: pdf.js baytları worker'a aktarınca dizi boşalır.
       const hash = await sha256Hex(bytes);
       const alreadyOpen = tabsRef.current.find((t) => t.record.hash === hash);
@@ -206,7 +217,6 @@ export function ReaderPage({ ai, ref }: Props) {
         return alreadyOpen.record.id;
       }
       if (expected) await flushPosition(expected.id);
-      const name = fileName(path);
       const content = await loadContent(format, bytes, name);
       const record = await registerOpened(db, { name, filePath: path, hash, format, pageCount: pageCountOf(content) });
       setTabs((prev) => [...prev, { record, content, view: "text" }]);
@@ -222,11 +232,13 @@ export function ReaderPage({ ai, ref }: Props) {
       if (e instanceof FileNotFoundError && expected) {
         setNotice({
           kind: "error",
-          text: `"${expected.name}" bulunamadı. Dosya taşınmış, adı değişmiş ya da silinmiş olabilir:\n${expected.filePath}`,
+          text: isContentUri(expected.filePath)
+            ? `"${expected.name}" açılamadı. Dosya taşınmış, silinmiş ya da erişim izni kalkmış olabilir; dosyayı yeniden seç.`
+            : `"${expected.name}" bulunamadı. Dosya taşınmış, adı değişmiş ya da silinmiş olabilir:\n${expected.filePath}`,
           missing: expected,
         });
       } else {
-        setNotice({ kind: "error", text: `${fileName(path)}: ${openErrorText(e)}` });
+        setNotice({ kind: "error", text: `${name}: ${openErrorText(e)}` });
       }
     } finally {
       setLoading(false);
@@ -257,6 +269,18 @@ export function ReaderPage({ ai, ref }: Props) {
     closeActiveTab() {
       if (activeId !== null) closeTab(activeId);
     },
+    back() {
+      if (popup || aiRead) {
+        setPopup(null);
+        setAiRead(null);
+        return true;
+      }
+      if (activeId !== null) {
+        showLibrary();
+        return true;
+      }
+      return false;
+    },
     cycleTab(step) {
       const ids: (number | null)[] = [null, ...tabsRef.current.map((t) => t.record.id)];
       const index = ids.indexOf(activeId);
@@ -282,9 +306,15 @@ export function ReaderPage({ ai, ref }: Props) {
   }
 
   async function pickAndOpen(expected?: DocumentRecord) {
-    const paths = await pickDocumentFiles(!expected);
-    if (expected && paths[0]) await openPath(paths[0], expected);
-    else await openPaths(paths);
+    let files: PickedFile[];
+    try {
+      files = await pickDocumentFiles(!expected);
+    } catch (e) {
+      setNotice({ kind: "error", text: `Dosya seçilemedi: ${String(e)}` });
+      return;
+    }
+    if (expected && files[0]) await openPath(files[0].path, expected, files[0].name);
+    else for (const file of files) await openPath(file.path, undefined, file.name);
   }
 
   async function closeTab(id: number) {
@@ -301,6 +331,8 @@ export function ReaderPage({ ai, ref }: Props) {
 
   async function removeFromRecent(id: number) {
     await hideFromRecent(db, id);
+    const record = await db.documents.get(id);
+    if (record && !tabsRef.current.some((t) => t.record.id === id)) await releaseAndroidFile(record.filePath);
     refreshRecent();
   }
 
@@ -311,7 +343,10 @@ export function ReaderPage({ ai, ref }: Props) {
       confirmLabel: "Temizle",
     });
     if (!ok) return;
+    const open = new Set(tabsRef.current.map((t) => t.record.id));
+    const hidden = (await db.documents.toArray()).filter((d) => !d.hiddenFromRecent && !open.has(d.id));
     await clearRecent(db);
+    for (const d of hidden) await releaseAndroidFile(d.filePath);
     refreshRecent();
   }
 
@@ -514,8 +549,11 @@ export function ReaderPage({ ai, ref }: Props) {
           <div className="tab-pane library">
             <div className="drop-zone">
               <h1>Duopdf</h1>
-              <p className="muted">Bir belgeyi buraya sürükle ya da seç. PDF, EPUB, DOCX, PPTX, TXT ve resim (PNG, JPG) açılabilir.</p>
-              <button onClick={() => pickAndOpen()} disabled={loading}>
+              <p className="muted">
+                {isAndroid ? "Okumak istediğin belgeyi seç." : "Bir belgeyi buraya sürükle ya da seç."} PDF, EPUB, DOCX, PPTX, TXT ve
+                resim (PNG, JPG) açılabilir.
+              </p>
+              <button className="open-btn" onClick={() => pickAndOpen()} disabled={loading}>
                 {loading ? "Açılıyor…" : "Belge aç"}
               </button>
             </div>
@@ -525,11 +563,11 @@ export function ReaderPage({ ai, ref }: Props) {
                 <h2>Nasıl başlanır?</h2>
                 <ol>
                   <li>Bir ders belgesi aç (PDF, EPUB, DOCX, PPTX, TXT ya da resim).</li>
-                  <li>Bilmediğin kelimeye tıkla: anlamını gör, "bilmiyorum" ya da "az biliyorum" diye işaretle. Uzun bir seçim cümleyi çevirir.</li>
+                  <li>Bilmediğin kelimeye {isAndroid ? "dokun" : "tıkla"}: anlamını gör, "bilmiyorum" ya da "az biliyorum" diye işaretle. Uzun bir seçim cümleyi çevirir.</li>
                   <li>İşaretlediğin kelimeler bütün belgelerde renkli görünür; Kelimeler sayfasında listelenir.</li>
                   <li>Sınav sayfasından kelimelerini tekrar et; her gün "Bugünkü tekrar"ı çöz.</li>
                 </ol>
-                <p className="muted">Önce Ayarlar'dan API anahtarını gir ve modelleri seç. Kısayollar için F1.</p>
+                <p className="muted">Önce Ayarlar'dan API anahtarını gir ve modelleri seç.{isAndroid ? "" : " Kısayollar için F1."}</p>
               </section>
             )}
             {recent.length > 0 && (
@@ -552,7 +590,7 @@ export function ReaderPage({ ai, ref }: Props) {
                             `${doc.format === "pdf" ? "Sayfa" : "Bölüm"} ${doc.lastPage} / ${doc.pageCount} · `}
                           {formatDate(doc.lastOpenedAt)}
                         </span>
-                        <span className="muted recent-path">{doc.filePath}</span>
+                        {!isContentUri(doc.filePath) && <span className="muted recent-path">{doc.filePath}</span>}
                       </button>
                       <button
                         className="secondary recent-remove"
@@ -566,6 +604,11 @@ export function ReaderPage({ ai, ref }: Props) {
                   ))}
                 </ul>
               </section>
+            )}
+            {isAndroid && (
+              <button className="fab" onClick={() => pickAndOpen()} disabled={loading} aria-label="Belge aç">
+                <Icon name="add" size={28} />
+              </button>
             )}
           </div>
         )}
