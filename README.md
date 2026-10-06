@@ -53,7 +53,9 @@ Eşitleme açılışta, açıkken 5 dakikada bir, kapanırken ve "Şimdi eşitle
 - **API anahtarları** yalnızca bu bilgisayarda, Windows'un kullanıcıya özel şifrelemesiyle (DPAPI) saklanır; yedeğe, eşitlemeye ve depoya girmez. Google istemci gizli anahtarı ve oturum anahtarı da aynı şekilde saklanır.
 - **Yapay zekâ isteklerinde** gönderilen metin (kelime, cümle, senin cevabın; "Yapay zekâ ile oku"da resim) yalnızca seçtiğin sağlayıcıya gider. **Sağlayıcının kullanım şartları ve veri politikası senin sorumluluğundadır.**
 - **Google Drive'a** yalnızca öğrenme verisi gider; belge dosyaları, dosya yolları ve API anahtarları gitmez. Uygulama yalnızca kendi gizli klasörüne erişir, Drive'daki diğer dosyalarını göremez.
-- OCR ve sesli okuma tamamen yereldir.
+- OCR tamamen yereldir. Sesli okuma cihazın ses motorunu kullanır; çevrim içi bir ses seçersen okunan metin o ses hizmetine gider.
+
+Ayrıntılar: [Gizlilik politikası](PRIVACY.md).
 
 ## Verilerin
 
