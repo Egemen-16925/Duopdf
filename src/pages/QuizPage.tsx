@@ -31,6 +31,7 @@ import type { AiTarget } from "../settings/providers";
 import { SpeakButton } from "../speech/SpeakButton";
 import { stopSpeaking } from "../speech/speech";
 import { QuizScore } from "./WordsPage";
+import { isAndroid } from "../platform";
 
 interface Props {
   /** Güçlü model (soruları üretir ve yazılı cevabı değerlendirir; hata olursa yedek model denenir). */
@@ -597,7 +598,7 @@ export function QuizPage({ target, fast, active }: Props) {
                   />
                   {!slot.done && (
                     <div className="quiz-tools">
-                      <span className="muted">Enter: gönder · Shift+Enter: yeni satır</span>
+                      {!isAndroid && <span className="muted">Enter: gönder · Shift+Enter: yeni satır</span>}
                       <button onClick={submit} disabled={!slot.answer?.trim() || slot.evaluating}>
                         {slot.evaluating ? "Değerlendiriliyor…" : "Kontrol et"}
                       </button>
@@ -618,7 +619,7 @@ export function QuizPage({ target, fast, active }: Props) {
 
               {slot.done ? (
                 <>
-                  <p className="muted quiz-hint">İngilizce yazıda kelimeye tıkla ya da cümleyi seç: anlamı ve çevirisi açılır.</p>
+                  <p className="muted quiz-hint">İngilizce yazıda kelimeye {isAndroid ? "dokun" : "tıkla"} ya da cümleyi seç: anlamı ve çevirisi açılır.</p>
                   {!toTurkish && (
                     <p className="quiz-target muted">
                       Hedef kelime: <strong>{slot.item.term.lemma}</strong> — <English question={question} pickable />
@@ -635,13 +636,13 @@ export function QuizPage({ target, fast, active }: Props) {
                           : `"${slot.item.term.lemma}" doğru çevrilmedi.`}
                     </span>
                     <ChangeNote change={slot.change} />
-                    <button onClick={next}>{isLast ? "Sonuçları gör" : "Sonraki soru"} (Enter)</button>
+                    <button onClick={next}>{isLast ? "Sonuçları gör" : "Sonraki soru"}{isAndroid ? "" : " (Enter)"}</button>
                   </div>
                 </>
               ) : (
                 question.kind === "mcq" && (
                   <div className="quiz-tools">
-                    <span className="muted">1-4 ya da A-D tuşlarıyla da seçebilirsin.</span>
+                    {!isAndroid && <span className="muted">1-4 ya da A-D tuşlarıyla da seçebilirsin.</span>}
                     <button
                       className="link-btn"
                       onClick={() => load(current, [question.english])}

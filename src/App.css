@@ -1371,6 +1371,7 @@ pre {
 
 /* Sınav */
 .quiz-page {
+  width: 100%;
   max-width: 760px;
   margin: 0 auto;
   display: flex;
@@ -1781,6 +1782,8 @@ div.quiz-option {
 
 /* İstatistik */
 .stats-page {
+  /* Sütunlu esnek kapsayıcıda auto kenar boşluğu genişliği içeriğe (grafiğin ilk genişliğine) bıraktığı için. */
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
   display: flex;
@@ -1835,6 +1838,8 @@ div.quiz-option {
 .daily-chart {
   position: relative;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .daily-chart svg {
@@ -2411,4 +2416,51 @@ kbd {
 /* Üst çubuk sayfanın adını zaten gösteriyor. */
 :root.android .page-title {
   display: none;
+}
+
+/* Kelime listesi: telefonda iki satır (kelime + anlam | sil; altında puan, tekrar, durum). */
+:root.android .term-main {
+  flex-wrap: wrap;
+  row-gap: 6px;
+  padding: 10px 6px 10px 14px;
+}
+
+:root.android .term-toggle {
+  order: 0;
+  flex: 1 1 calc(100% - 60px);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+:root.android .term-lemma {
+  font-size: 1.05rem;
+}
+
+:root.android .term-meaning {
+  margin-left: 0;
+}
+
+:root.android .term-main > .icon-btn {
+  order: 1;
+}
+
+:root.android .term-score,
+:root.android .term-due,
+:root.android .term-count {
+  order: 2;
+  font-size: 0.85rem;
+}
+
+:root.android .term-main .status-select {
+  order: 2;
+  margin-left: auto;
+  margin-right: 8px;
+  width: auto;
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+:root.android .words-filters {
+  flex-wrap: nowrap;
 }
