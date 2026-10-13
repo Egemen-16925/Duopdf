@@ -1,4 +1,4 @@
-import { tokenize, type Token } from "./lemma";
+import { tokenize, type Token } from "duo-terms";
 import { sentenceAround } from "./sentence";
 import { buildTextMap, offsetOf, rangeFor, type TextMap, type TextMode } from "./textMap";
 

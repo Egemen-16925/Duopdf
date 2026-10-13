@@ -4,7 +4,7 @@ import { multipleChoicePrompt, type QuizDirection, type QuizLevel } from "../ai/
 import { openQuestionPrompt } from "../ai/prompts/openQuestion";
 import type { Evaluation, MultipleChoice } from "../ai/schemas";
 import type { DuopdfDB, OccurrenceRecord, QuizAttemptRecord, TermRecord } from "../db/db";
-import type { TermStatus } from "../learning/matcher";
+import type { TermStatus } from "duo-terms";
 import { cleanText } from "../learning/sentence";
 import { sentenceKey } from "../learning/sentences";
 import type { AiTarget } from "../settings/providers";

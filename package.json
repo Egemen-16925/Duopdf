@@ -19,6 +19,7 @@
     "@tesseract.js-data/eng": "^1.0.0",
     "dexie": "^4.4.6",
     "dompurify": "^3.4.16",
+    "duo-terms": "github:Egemen-16925/duo-terms#v1.1.0",
     "jszip": "^3.10.2",
     "mammoth": "^1.13.0",
     "pdf-lib": "^1.17.1",
@@ -26,7 +27,6 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tesseract.js": "^7.0.0",
-    "wink-lemmatizer": "^3.0.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

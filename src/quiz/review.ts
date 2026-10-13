@@ -1,5 +1,5 @@
 import type { DuopdfDB, TermRecord } from "../db/db";
-import type { TermStatus } from "../learning/matcher";
+import type { TermStatus } from "duo-terms";
 
 /**
  * Aralıklı tekrar. Her sınav cevabı kelimenin bir sonraki tekrar zamanını belirler:

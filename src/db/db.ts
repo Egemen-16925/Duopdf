@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { DocFormat } from "../formats/types";
-import type { TermStatus } from "../learning/matcher";
+import type { TermStatus } from "duo-terms";
 import type { OcrResult } from "../ocr/result";
 
 /**

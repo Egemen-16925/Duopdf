@@ -1,6 +1,7 @@
 import type { DuopdfDB, OccurrenceRecord, TermRecord } from "../db/db";
-import { normalizeWord } from "./lemma";
-import { patternFor, type TermStatus } from "./matcher";
+import { mergePatterns, patternFor, termKey, type TermStatus } from "duo-terms";
+
+export { termKey };
 
 export interface MarkInput {
   /** Varsa güncellenecek terim (tıklanan kelime zaten işaretliyse). */
@@ -15,16 +16,7 @@ export interface MarkInput {
   occurrence?: Omit<OccurrenceRecord, "id" | "termId" | "createdAt">;
 }
 
-export function termKey(lemma: string): string {
-  return lemma.trim().split(/\s+/).map(normalizeWord).join(" ");
-}
-
 const words = (text: string) => text.trim().split(/\s+/).filter(Boolean);
-
-function mergePatterns(a: string[][], b: string[][]): string[][] {
-  if (a.length !== b.length) return a;
-  return a.map((keys, i) => [...new Set([...keys, ...b[i]])]);
-}
 
 export function newReview(now: number): TermRecord["review"] {
   return { intervalDays: 0, dueAt: now, streak: 0 };

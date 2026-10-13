@@ -1,5 +1,5 @@
-import { tokenize } from "./lemma";
-import { buildMatcher, type Matcher, type TermStatus } from "./matcher";
+import { tokenize } from "duo-terms";
+import { buildMatcher, type Matcher, type TermStatus } from "duo-terms";
 import { buildTextMap, rangeFor, type TextMode } from "./textMap";
 
 /**

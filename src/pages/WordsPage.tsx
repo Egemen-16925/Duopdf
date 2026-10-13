@@ -1,7 +1,7 @@
 import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { db, type DocumentRecord, type OccurrenceRecord, type TermRecord } from "../db/db";
-import type { TermStatus } from "../learning/matcher";
+import type { TermStatus } from "duo-terms";
 import { refreshTerms, useTerms } from "../learning/store";
 import { deleteTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "../learning/terms";
 import { STATUS_LABELS } from "../learning/WordPopup";

@@ -3,7 +3,7 @@ import { describeAiError } from "../ai/errors";
 import type { Evaluation } from "../ai/schemas";
 import { db, type OccurrenceRecord } from "../db/db";
 import { trackRoot, untrackRoot } from "../learning/highlights";
-import type { TermStatus } from "../learning/matcher";
+import type { TermStatus } from "duo-terms";
 import { pickFromPointer, type Pick } from "../learning/pick";
 import { SentencePopup } from "../learning/SentencePopup";
 import { refreshTerms, useTerms } from "../learning/store";

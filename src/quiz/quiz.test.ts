@@ -6,7 +6,7 @@ vi.mock("@tauri-apps/plugin-http", () => ({ fetch: (...args: unknown[]) => fetch
 
 import { multipleChoiceSchema } from "../ai/schemas";
 import { DuopdfDB, type OccurrenceRecord, type TermRecord } from "../db/db";
-import { patternFor } from "../learning/matcher";
+import { patternFor } from "duo-terms";
 import { markTerm } from "../learning/terms";
 import {
   buildQuestion,

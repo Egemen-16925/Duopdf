@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { db, type TermRecord } from "../db/db";
 import { setHighlightMatcher } from "./highlights";
-import { buildMatcher, type Matcher } from "./matcher";
+import { buildMatcher, type Matcher } from "duo-terms";
 import { listTerms } from "./terms";
 
 /** İşaretli terimlerin uygulama genelindeki kopyası; değişince vurgular yeniden hesaplanır. */

@@ -1,3 +1,7 @@
+import { cleanText } from "duo-terms";
+
+export { cleanText };
+
 const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
 
 /**
@@ -10,14 +14,6 @@ const ABBREVIATION =
 export interface SentenceSpan {
   start: number;
   end: number;
-}
-
-/** PDF'ten gelen metni düzeltir: satır sonu tirelemesini birleştirir, boşlukları sadeleştirir. */
-export function cleanText(text: string): string {
-  return text
-    .replace(/(\p{L})-\s*\n?\s+(\p{Ll})/gu, "$1$2")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Metni cümlelere böler (boşluk dahil konumlar; kısaltma düzeltmesiyle). */

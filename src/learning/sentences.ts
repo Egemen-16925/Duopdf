@@ -1,16 +1,8 @@
 import type { SentenceTranslation } from "../ai/schemas";
 import type { DuopdfDB, SentenceRecord } from "../db/db";
-import { cleanText } from "./sentence";
+import { cleanText, sentenceKey } from "duo-terms";
 
-async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** Cümlenin cihazdan bağımsız anahtarı: temizlenmiş metnin özeti. */
-export function sentenceKey(text: string): Promise<string> {
-  return sha256(cleanText(text));
-}
+export { sentenceKey };
 
 export async function getSentence(db: DuopdfDB, text: string): Promise<SentenceRecord | undefined> {
   return db.sentences.where("key").equals(await sentenceKey(text)).first();

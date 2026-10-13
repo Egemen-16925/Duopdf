@@ -2,8 +2,8 @@ import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DuopdfDB } from "../db/db";
 import { cached } from "./cache";
-import { tokenize } from "./lemma";
-import { buildMatcher } from "./matcher";
+import { tokenize } from "duo-terms";
+import { buildMatcher } from "duo-terms";
 import { deleteTerm, listTerms, markTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "./terms";
 
 let db: DuopdfDB;
