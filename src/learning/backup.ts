@@ -17,7 +17,8 @@ const backupSchema = z.object({
   data: z.object({
     documents: z.array(withId.extend({ hash: z.string(), name: z.string() })),
     terms: z.array(withId.extend({ key: z.string(), status: z.enum(["unknown", "learning", "known"]) })),
-    occurrences: z.array(withId.extend({ termId: z.number(), documentId: z.number() })),
+    // Web geçişlerinde (url, title) belge yoktur.
+    occurrences: z.array(withId.extend({ termId: z.number(), documentId: z.number().optional() })),
     cache: z.array(z.object({ key: z.string() }).passthrough()),
     // Faz 4'te eklendi; eski yedeklerde yoksa boş sayılır.
     sentences: z.array(withId.extend({ key: z.string(), text: z.string() })).default([]),

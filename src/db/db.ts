@@ -50,14 +50,21 @@ export interface TermRecord {
   review: { intervalDays: number; dueAt: number; streak: number };
 }
 
+/**
+ * Kelimenin geçtiği yer. Belge geçişinde `documentId`, `page` ve `view` bulunur; web geçişinde
+ * (Firelingo'dan eşitlemeyle gelir) bunların yerine `url` ve `title` vardır.
+ */
 export interface OccurrenceRecord {
   id: number;
   termId: number;
-  documentId: number;
+  documentId?: number;
   /** PDF'te sayfa, akan metinde bölüm (1'den başlar). */
-  page: number;
+  page?: number;
   /** DOCX/PPTX'te hangi görünümde işaretlendiği (orijinal görünümde sayfalar farklıdır). */
-  view: "text" | "original";
+  view?: "text" | "original";
+  /** Web geçişi: sayfanın adresi (# kısmı olmadan) ve başlığı. */
+  url?: string;
+  title?: string;
   sentence: string;
   createdAt: number;
 }

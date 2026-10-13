@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DuopdfDB } from "../db/db";
+import { DuopdfDB, type OccurrenceRecord } from "../db/db";
 import { registerOpened } from "../db/documents";
 import { clearLearningData, exportLearningData, importLearningData, parseBackup } from "./backup";
 import { cached } from "./cache";
@@ -63,6 +63,28 @@ describe("backup", () => {
     expect(await db.cache.count()).toBe(1);
     expect((await db.sentences.toArray())[0]).toMatchObject({ text: "We ran it.", translation: "Onu çalıştırdık." });
     expect(await db.tombstones.get("term:old")).toBeDefined();
+  });
+
+  it("round-trips web occurrences (from Firelingo) with their url and title", async () => {
+    await seed();
+    const term = await db.terms.where("key").equals("run").first();
+    await db.occurrences.add({
+      termId: term!.id,
+      url: "https://example.com/article",
+      title: "Example article",
+      sentence: "We ran the tests.",
+      createdAt: 30,
+    } as OccurrenceRecord);
+
+    const backup = parseBackup(JSON.stringify(await exportLearningData(db)));
+    await clearLearningData(db);
+    await importLearningData(db, backup);
+
+    const occurrences = await db.occurrences.toArray();
+    expect(occurrences).toHaveLength(2);
+    const web = occurrences.find((o) => o.url);
+    expect(web).toMatchObject({ url: "https://example.com/article", title: "Example article", sentence: "We ran the tests." });
+    expect(web!.documentId).toBeUndefined();
   });
 
   it("still imports backups made before sentence translations existed", async () => {

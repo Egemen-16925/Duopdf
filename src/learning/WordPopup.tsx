@@ -15,7 +15,7 @@ import { useDismiss, usePopupPlacement } from "./popup";
 import { getMatcher, refreshTerms, useTerms } from "./store";
 import { deleteTerm, markTerm } from "./terms";
 
-export type PickLocation = Omit<OccurrenceRecord, "id" | "termId" | "createdAt" | "sentence">;
+export type PickLocation = Required<Pick<OccurrenceRecord, "documentId" | "page" | "view">>;
 
 interface Props {
   pick: WordPick;

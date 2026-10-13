@@ -249,7 +249,8 @@ export function ReaderPage({ ai, ref }: Props) {
 
   useImperativeHandle(ref, () => ({
     async openAt(occ) {
-      const record = await db.documents.get(occ.documentId);
+      // Web geçişinin (Firelingo) belgesi yoktur; kelime listesi onu tarayıcıda açar.
+      const record = occ.documentId === undefined ? undefined : await db.documents.get(occ.documentId);
       if (!record) {
         setNotice({ kind: "error", text: "Bu kelimenin geçtiği belgenin kaydı bulunamadı." });
         return;
@@ -261,7 +262,7 @@ export function ReaderPage({ ai, ref }: Props) {
       const tab = tabsRef.current.find((t) => t.record.id === id);
       if (!tab) return;
       if (occ.view === "original" && tab.view !== "original") await setView(tab, "original");
-      patchTab(id, { jump: { page: occ.page, sentence: occ.sentence, view: occ.view, nonce: Date.now() } });
+      patchTab(id, { jump: { page: occ.page ?? 1, sentence: occ.sentence, view: occ.view ?? "text", nonce: Date.now() } });
     },
     openFile() {
       if (!loading) pickAndOpen();

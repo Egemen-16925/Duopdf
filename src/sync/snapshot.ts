@@ -11,7 +11,8 @@ import type {
 
 /**
  * Bulutta tutulan öğrenme verisi. Kayıtlar cihazdan bağımsız anahtarlarla tanınır
- * (belge: hash, terim: key, geçiş: terim + belge + yer + cümle); sayısal `id`'ler buraya girmez.
+ * (belge: hash, terim: key, geçiş: terim + belge + yer + cümle, web geçişinde terim + adres + cümle);
+ * sayısal `id`'ler buraya girmez.
  * Cihaza özel alanlar (dosya yolu, son sayfa, son açılma) ve yeniden üretilebilen
  * önbellekler (yapay zekâ önbelleği, OCR) eşitlenmez. API anahtarı bu veride hiç yoktur.
  */
@@ -20,9 +21,10 @@ export const SNAPSHOT_VERSION = 1;
 
 export type SyncDocument = Pick<DocumentRecord, "hash" | "name" | "format" | "pageCount" | "addedAt">;
 export type SyncTerm = Omit<TermRecord, "id">;
-export interface SyncOccurrence extends Pick<OccurrenceRecord, "page" | "view" | "sentence" | "createdAt"> {
+/** Belge geçişinde `docHash`, `page`, `view`; web geçişinde (Firelingo) `url` ve isteğe bağlı `title` bulunur. */
+export interface SyncOccurrence extends Pick<OccurrenceRecord, "page" | "view" | "url" | "title" | "sentence" | "createdAt"> {
   termKey: string;
-  docHash: string;
+  docHash?: string;
 }
 export type SyncSentence = Omit<SentenceRecord, "id">;
 
@@ -52,7 +54,12 @@ export function emptySnapshot(): Snapshot {
   };
 }
 
-export const occurrenceKey = (o: SyncOccurrence) => [o.termKey, o.docHash, o.view, o.page, o.sentence].join("\u0001");
+/** Web geçişi mi: belgeye bağlı değil, adresi var. */
+export const isWebOccurrence = (o: Pick<SyncOccurrence, "docHash" | "url">) => !o.docHash && !!o.url;
+
+/** Belge geçişlerinin anahtarı değişmemeli (yoksa mevcut kayıtlar çoğalır); web geçişi adresle tanınır. */
+export const occurrenceKey = (o: SyncOccurrence) =>
+  (isWebOccurrence(o) ? [o.termKey, `url:${o.url}`, o.sentence] : [o.termKey, o.docHash, o.view, o.page, o.sentence]).join("\u0001");
 
 /** Silme izi kaydı sildi mi: iz, kaydın son değişikliğinden yeni ya da aynı anda. */
 function erased(tombstones: Map<string, number>, key: string, updatedAt: number): boolean {
@@ -139,16 +146,17 @@ export async function readSnapshot(db: DuopdfDB): Promise<Snapshot> {
         version: SNAPSHOT_VERSION,
         documents: documents.map(({ hash, name, format, pageCount, addedAt }) => ({ hash, name, format, pageCount, addedAt })),
         terms: terms.map(({ id: _, ...rest }) => rest),
-        occurrences: occurrences
-          .filter((o) => termKey.has(o.termId) && docHash.has(o.documentId))
-          .map((o) => ({
-            termKey: termKey.get(o.termId)!,
-            docHash: docHash.get(o.documentId)!,
-            page: o.page,
-            view: o.view,
-            sentence: o.sentence,
-            createdAt: o.createdAt,
-          })),
+        occurrences: occurrences.flatMap((o): SyncOccurrence[] => {
+          const key = termKey.get(o.termId);
+          if (key === undefined) return [];
+          const hash = o.documentId === undefined ? undefined : docHash.get(o.documentId);
+          if (hash !== undefined) {
+            return [{ termKey: key, docHash: hash, page: o.page, view: o.view, sentence: o.sentence, createdAt: o.createdAt }];
+          }
+          // Web geçişi: belgesi yoktur, adres ve başlık gidiş-dönüşte korunur.
+          if (!o.url) return [];
+          return [{ termKey: key, sentence: o.sentence, url: o.url, ...(o.title ? { title: o.title } : {}), createdAt: o.createdAt }];
+        }),
         sentences: sentences.map(({ id: _, ...rest }) => rest),
         strokes,
         quizAttempts,
@@ -206,30 +214,32 @@ export async function applySnapshot(db: DuopdfDB, snap: Snapshot): Promise<void>
       const keyOfTerm = new Map([...termId].map(([key, id]) => [id, key]));
       const hashOfDoc = new Map([...docId].map(([hash, id]) => [id, hash]));
       const existing = new Set(
-        (await db.occurrences.toArray()).map((o) =>
-          occurrenceKey({
+        (await db.occurrences.toArray()).map((o) => {
+          const hash = o.documentId === undefined ? undefined : hashOfDoc.get(o.documentId);
+          return occurrenceKey({
             termKey: keyOfTerm.get(o.termId) ?? "",
-            docHash: hashOfDoc.get(o.documentId) ?? "",
-            page: o.page,
-            view: o.view,
+            ...(hash === undefined && o.url ? { url: o.url } : { docHash: hash ?? "", page: o.page, view: o.view }),
             sentence: o.sentence,
             createdAt: o.createdAt,
-          }),
-        ),
+          });
+        }),
       );
-      const newOccurrences = snap.occurrences
-        .filter((o) => !existing.has(occurrenceKey(o)) && termId.has(o.termKey) && docId.has(o.docHash))
-        .map(
-          (o) =>
-            ({
-              termId: termId.get(o.termKey)!,
-              documentId: docId.get(o.docHash)!,
-              page: o.page,
-              view: o.view,
-              sentence: o.sentence,
-              createdAt: o.createdAt,
-            }) as OccurrenceRecord,
-        );
+      const newOccurrences: OccurrenceRecord[] = [];
+      for (const o of snap.occurrences) {
+        const key = occurrenceKey(o);
+        const term = termId.get(o.termKey);
+        if (existing.has(key) || term === undefined) continue;
+        const base = { termId: term, sentence: o.sentence, createdAt: o.createdAt };
+        if (isWebOccurrence(o)) {
+          // Web geçişinin belgesi yoktur.
+          newOccurrences.push({ ...base, url: o.url, ...(o.title ? { title: o.title } : {}) } as OccurrenceRecord);
+        } else {
+          const doc = o.docHash === undefined ? undefined : docId.get(o.docHash);
+          if (doc === undefined) continue;
+          newOccurrences.push({ ...base, documentId: doc, page: o.page, view: o.view } as OccurrenceRecord);
+        }
+        existing.add(key);
+      }
       if (newOccurrences.length) await db.occurrences.bulkAdd(newOccurrences);
 
       // Çeviriler.

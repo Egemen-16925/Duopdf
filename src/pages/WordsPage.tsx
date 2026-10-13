@@ -1,9 +1,11 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { askConfirm } from "../ui/confirm";
 import { useEffect, useMemo, useState } from "react";
 import { db, type DocumentRecord, type OccurrenceRecord, type TermRecord } from "../db/db";
 import type { TermStatus } from "duo-terms";
 import { refreshTerms, useTerms } from "../learning/store";
 import { deleteTerm, occurrenceCounts, occurrencesOf, setTermStatus } from "../learning/terms";
+import { webSource } from "../learning/webSource";
 import { STATUS_LABELS } from "../learning/WordPopup";
 import { quizStats, type TermQuizStats } from "../quiz/quiz";
 import { describeDue } from "../quiz/review";
@@ -149,8 +151,12 @@ export function WordsPage({ onGoTo, onGoReader }: Props) {
                 {occurrences.length === 0 && <p className="muted">Kayıtlı cümle yok.</p>}
                 <ul className="occurrence-list">
                   {occurrences.map((occ) => {
-                    const doc = documents.get(occ.documentId);
-                    const where = doc ? `${doc.name} · ${doc.format === "pdf" || occ.view === "original" ? "s." : "bölüm"} ${occ.page}` : "silinmiş belge";
+                    const doc = occ.documentId === undefined ? undefined : documents.get(occ.documentId);
+                    // Web geçişi (Firelingo): belge yerine sayfanın başlığı ve sitesi gösterilir.
+                    const web = !doc && occ.url ? webSource(occ.url, occ.title) : undefined;
+                    const where = doc
+                      ? `${doc.name} · ${doc.format === "pdf" || occ.view === "original" ? "s." : "bölüm"} ${occ.page}`
+                      : (web?.label ?? "silinmiş belge");
                     return (
                       <li key={occ.id}>
                         <p className="occurrence-sentence">{occ.sentence}</p>
@@ -159,6 +165,11 @@ export function WordsPage({ onGoTo, onGoReader }: Props) {
                           {doc && (
                             <button className="secondary" onClick={() => onGoTo(occ)}>
                               Cümleye git
+                            </button>
+                          )}
+                          {web?.href && (
+                            <button className="secondary" onClick={() => void openUrl(web.href!)}>
+                              Sayfayı aç
                             </button>
                           )}
                         </div>
