@@ -2,9 +2,10 @@ import { askConfirm } from "../ui/confirm";
 import { useState } from "react";
 import { db } from "../db/db";
 import { clearLearningData, importLearningData, summarize, type BackupSummary } from "../learning/backup";
-import { exportToFile, readBackupFile } from "../learning/backupFiles";
+import { exportSyncFile, exportToFile, readBackupFile, readSyncFile } from "../learning/backupFiles";
 import { refreshTerms } from "../learning/store";
 import { deleteCloudData, getSyncState } from "../sync/manager";
+import { mergeImport } from "../sync/mergeImport";
 import { isAndroid } from "../platform";
 
 type Status = { kind: "ok" | "error" | "info"; text: string } | null;
@@ -41,13 +42,34 @@ export function BackupSection() {
       const summary = summarize(backup);
       const ok = await askConfirm({
         title: "Yedek içe aktarılsın mı?",
-        message: `Yedekte ${describe(summary)} var. Şu anki öğrenme verin bununla DEĞİŞTİRİLECEK.`,
+        message: `Yedekte ${describe(summary)} var. Şu anki öğrenme verin bununla DEĞİŞTİRİLECEK. Firelingo dosyası için "Birleştirerek içe aktar"ı kullan.`,
         confirmLabel: "İçe aktar",
       });
       if (!ok) return;
       await importLearningData(db, backup);
       await refreshTerms();
       setStatus({ kind: "ok", text: `İçe aktarıldı: ${describe(summary)}. Açık belgeleri kapatıp yeniden açman gerekebilir.` });
+    });
+
+  const doMergeImport = () =>
+    run(async () => {
+      const file = await readSyncFile();
+      if (!file) return;
+      const result = await mergeImport(db, file);
+      await refreshTerms();
+      const changed = result.added + result.updated + result.removed > 0;
+      setStatus({
+        kind: changed ? "ok" : "info",
+        text: changed
+          ? `Birleştirildi: ${result.added} yeni kelime, ${result.updated} güncellenen, ${result.removed} silinen. Mevcut verin korundu.`
+          : "Dosyadaki her şey zaten sende vardı; hiçbir şey değişmedi.",
+      });
+    });
+
+  const doSyncExport = () =>
+    run(async () => {
+      const result = await exportSyncFile();
+      if (result) setStatus({ kind: "ok", text: `${result.terms} kelime kaydedildi:\n${result.path}` });
     });
 
   const doClear = () =>
@@ -97,6 +119,20 @@ export function BackupSection() {
         </button>
         <button className="danger" onClick={doClear} disabled={busy}>
           Öğrenme verisini sil
+        </button>
+      </div>
+      <h3>Kelime listesi (Firelingo)</h3>
+      <p className="muted">
+        Firelingo'yla Google Drive bağlamadan kelime alışverişi için. <strong>Birleştirerek içe aktar</strong> mevcut verini silmez: yeni
+        kelimeler eklenir, aynı kelimenin yeni olan hâli kalır; belgelerin, çizimlerin ve sınav geçmişin değişmez. Yukarıdaki{" "}
+        <strong>İçe aktar</strong> ise tüm veriyi yedektekiyle değiştirir.
+      </p>
+      <div className="actions">
+        <button className="secondary" onClick={doMergeImport} disabled={busy}>
+          Birleştirerek içe aktar
+        </button>
+        <button className="secondary" onClick={doSyncExport} disabled={busy}>
+          Kelime listesini dışa aktar
         </button>
       </div>
       {status && <p className={`msg ${status.kind}`}>{status.text}</p>}
